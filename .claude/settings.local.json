@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p \"c:/MTA/Exploration/belajar-ai/docs/superpowers/specs\")"
+    ],
+    "additionalDirectories": [
+      "c:\\MTA\\Exploration\\belajar-ai\\docs\\superpowers"
+    ]
+  }
+}
