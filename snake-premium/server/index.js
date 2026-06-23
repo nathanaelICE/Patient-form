@@ -4,6 +4,7 @@ const cors = require('cors');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const db = require('./database');
+const midtrans = require('./midtrans');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -32,6 +33,41 @@ app.get('/api/check-premium/:userId', (req, res) => {
     return res.status(404).json({ error: 'User not found' });
   }
   res.json({ isPremium: Boolean(user.is_premium) });
+});
+
+// Create transaction
+app.post('/api/create-transaction', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const orderId = `SNAKE-${userId}-${Date.now()}`;
+    const amount = 10000; // Rp 10,000
+
+    const { redirectUrl } = await midtrans.createTransaction(orderId, amount);
+
+    res.json({ orderId, redirectUrl });
+  } catch (error) {
+    console.error('Transaction error:', error);
+    res.status(500).json({ error: 'Failed to create transaction' });
+  }
+});
+
+// Midtrans notification webhook
+app.post('/api/notification', async (req, res) => {
+  try {
+    const notification = await midtrans.verifyNotification(req.body.order_id);
+
+    if (notification.transactionStatus === 'capture' ||
+        notification.transactionStatus === 'settlement') {
+      // Extract userId from orderId (format: SNAKE-userId-timestamp)
+      const userId = notification.orderId.split('-')[1];
+      db.updatePremiumStatus(userId, notification.orderId);
+    }
+
+    res.status(200).json({ status: 'ok' });
+  } catch (error) {
+    console.error('Notification error:', error);
+    res.status(500).json({ error: 'Notification processing failed' });
+  }
 });
 
 app.listen(PORT, () => {
