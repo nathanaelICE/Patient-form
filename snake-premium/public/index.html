@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Premium</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #1a1a2e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #eee;
+        }
+
+        .game-container {
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            color: #00ff88;
+            text-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+        }
+
+        .score-board {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        .score-board span {
+            color: #00ff88;
+            font-weight: bold;
+        }
+
+        .premium-badge {
+            background: linear-gradient(135deg, #ffd700, #ffaa00);
+            color: #1a1a2e;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            display: none;
+            margin-bottom: 10px;
+        }
+
+        .premium-badge.active {
+            display: inline-block;
+        }
+
+        canvas {
+            border: 3px solid #00ff88;
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.2);
+            background: #16213e;
+        }
+
+        canvas.premium-border {
+            border-color: #ffd700;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
+        }
+
+        .controls {
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: #888;
+        }
+
+        .controls kbd {
+            background: #333;
+            padding: 3px 8px;
+            border-radius: 4px;
+            border: 1px solid #555;
+            color: #eee;
+        }
+
+        .extra-life {
+            color: #ff4444;
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            display: none;
+        }
+
+        .extra-life.available {
+            display: block;
+        }
+
+        .extra-life.used {
+            color: #666;
+        }
+
+        #startBtn {
+            margin-top: 15px;
+            padding: 12px 40px;
+            font-size: 1.2rem;
+            background: #00ff88;
+            color: #1a1a2e;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        #startBtn:hover {
+            background: #00cc6a;
+            transform: scale(1.05);
+        }
+
+        #premiumBtn {
+            margin-top: 10px;
+            padding: 10px 30px;
+            font-size: 1rem;
+            background: linear-gradient(135deg, #ffd700, #ffaa00);
+            color: #1a1a2e;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        #premiumBtn:hover {
+            transform: scale(1.05);
+        }
+
+        #premiumBtn.hidden {
+            display: none;
+        }
+
+        .game-over-text {
+            font-size: 2rem;
+            color: #ff4444;
+            text-shadow: 0 0 20px rgba(255, 68, 68, 0.5);
+            display: none;
+        }
+
+        .extra-life-text {
+            font-size: 1.5rem;
+            color: #ffd700;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🐍 Snake Premium</h1>
+        <div class="premium-badge" id="premiumBadge">⭐ Premium</div>
+        <div class="score-board">
+            <div>Score: <span id="score">0</span></div>
+            <div>High Score: <span id="highScore">0</span></div>
+        </div>
+        <div class="extra-life" id="extraLife">❤️</div>
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+        <div class="controls">
+            <p>Gunakan <kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> atau <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> untuk bergerak</p>
+            <p style="margin-top: 5px;">Tekan <kbd>P</kbd> untuk pause</p>
+        </div>
+        <button id="startBtn" onclick="startGame()">Mulai Bermain</button>
+        <button id="premiumBtn" onclick="getPremium()">Get Premium — Extra Life (Rp 10,000)</button>
+        <p class="game-over-text" id="gameOverText">Game Over!</p>
+        <p class="extra-life-text" id="extraLifeText">Extra Life Used!</p>
+    </div>
+
+    <script>
+        // ==================== CONFIGURATION ====================
+        const CANVAS_SIZE = 400;
+        const GRID_SIZE = 20;
+        const CELL_SIZE = CANVAS_SIZE / GRID_SIZE;
+        const INITIAL_SPEED = 150;
+        const SPEED_INCREMENT = 2;
+
+        // ==================== STATE ====================
+        let canvas, ctx;
+        let snake = [];
+        let food = {};
+        let direction = { x: 1, y: 0 };
+        let nextDirection = { x: 1, y: 0 };
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('snakeHighScore')) || 0;
+        let gameLoop = null;
+        let speed = INITIAL_SPEED;
+        let isPlaying = false;
+        let isPaused = false;
+
+        // Premium state
+        let userId = localStorage.getItem('snakeUserId') || null;
+        let isPremium = false;
+        let extraLifeAvailable = false;
+        let extraLifeUsed = false;
+
+        // ==================== INITIALIZATION ====================
+        async function init() {
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            document.getElementById('highScore').textContent = highScore;
+
+            // Get or create user
+            if (!userId) {
+                const response = await fetch('/api/create-user', { method: 'POST' });
+                const data = await response.json();
+                userId = data.userId;
+                localStorage.setItem('snakeUserId', userId);
+            }
+
+            // Check premium status
+            await checkPremiumStatus();
+
+            // Event listeners
+            document.addEventListener('keydown', handleKeyPress);
+
+            drawGrid();
+        }
+
+        async function checkPremiumStatus() {
+            try {
+                const response = await fetch(`/api/check-premium/${userId}`);
+                const data = await response.json();
+                isPremium = data.isPremium;
+
+                updatePremiumUI();
+            } catch (error) {
+                console.error('Error checking premium:', error);
+            }
+        }
+
+        function updatePremiumUI() {
+            const badge = document.getElementById('premiumBadge');
+            const premiumBtn = document.getElementById('premiumBtn');
+            const canvasEl = document.getElementById('gameCanvas');
+            const extraLife = document.getElementById('extraLife');
+
+            if (isPremium) {
+                badge.classList.add('active');
+                premiumBtn.classList.add('hidden');
+                canvasEl.classList.add('premium-border');
+                extraLife.classList.add('available');
+            } else {
+                badge.classList.remove('active');
+                premiumBtn.classList.remove('hidden');
+                canvasEl.classList.remove('premium-border');
+                extraLife.classList.remove('available');
+            }
+        }
+
+        // ==================== GAME LOGIC ====================
+        function startGame() {
+            snake = [
+                { x: 5, y: 10 },
+                { x: 4, y: 10 },
+                { x: 3, y: 10 }
+            ];
+            direction = { x: 1, y: 0 };
+            nextDirection = { x: 1, y: 0 };
+            score = 0;
+            speed = INITIAL_SPEED;
+            isPaused = false;
+            extraLifeUsed = false;
+            extraLifeAvailable = isPremium;
+
+            document.getElementById('score').textContent = score;
+            document.getElementById('gameOverText').style.display = 'none';
+            document.getElementById('extraLifeText').style.display = 'none';
+            document.getElementById('startBtn').textContent = 'Restart';
+
+            updateExtraLifeUI();
+            spawnFood();
+
+            if (gameLoop) clearInterval(gameLoop);
+            isPlaying = true;
+            gameLoop = setInterval(gameStep, speed);
+        }
+
+        function updateExtraLifeUI() {
+            const extraLife = document.getElementById('extraLife');
+            if (isPremium) {
+                extraLife.classList.add('available');
+                if (extraLifeUsed) {
+                    extraLife.classList.add('used');
+                } else {
+                    extraLife.classList.remove('used');
+                }
+            }
+        }
+
+        function gameStep() {
+            if (isPaused) return;
+
+            direction = { ...nextDirection };
+
+            const head = {
+                x: snake[0].x + direction.x,
+                y: snake[0].y + direction.y
+            };
+
+            // Wall collision
+            if (head.x < 0 || head.x >= GRID_SIZE || head.y < 0 || head.y >= GRID_SIZE) {
+                handleDeath();
+                return;
+            }
+
+            // Self collision
+            for (let segment of snake) {
+                if (head.x === segment.x && head.y === segment.y) {
+                    handleDeath();
+                    return;
+                }
+            }
+
+            snake.unshift(head);
+
+            // Food collision
+            if (head.x === food.x && head.y === food.y) {
+                score += 10;
+                document.getElementById('score').textContent = score;
+
+                if (score > highScore) {
+                    highScore = score;
+                    document.getElementById('highScore').textContent = highScore;
+                    localStorage.setItem('snakeHighScore', highScore);
+                }
+
+                spawnFood();
+                speed = Math.max(50, speed - SPEED_INCREMENT);
+                clearInterval(gameLoop);
+                gameLoop = setInterval(gameStep, speed);
+            } else {
+                snake.pop();
+            }
+
+            draw();
+        }
+
+        function handleDeath() {
+            if (isPremium && extraLifeAvailable && !extraLifeUsed) {
+                // Use extra life
+                extraLifeUsed = true;
+                extraLifeAvailable = false;
+                updateExtraLifeUI();
+
+                // Show message
+                const extraLifeText = document.getElementById('extraLifeText');
+                extraLifeText.style.display = 'block';
+                setTimeout(() => {
+                    extraLifeText.style.display = 'none';
+                }, 1000);
+
+                // Respawn at center
+                snake = [
+                    { x: GRID_SIZE / 2, y: GRID_SIZE / 2 },
+                    { x: GRID_SIZE / 2 - 1, y: GRID_SIZE / 2 },
+                    { x: GRID_SIZE / 2 - 2, y: GRID_SIZE / 2 }
+                ];
+                direction = { x: 1, y: 0 };
+                nextDirection = { x: 1, y: 0 };
+
+                draw();
+            } else {
+                // Game over
+                gameOver();
+            }
+        }
+
+        function gameOver() {
+            isPlaying = false;
+            clearInterval(gameLoop);
+
+            let flashes = 0;
+            const flashInterval = setInterval(() => {
+                if (flashes >= 6) {
+                    clearInterval(flashInterval);
+                    document.getElementById('gameOverText').style.display = 'block';
+                    document.getElementById('startBtn').textContent = 'Main Lagi';
+                    return;
+                }
+
+                ctx.fillStyle = flashes % 2 === 0 ? 'rgba(255, 0, 0, 0.3)' : '#16213e';
+                ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+                if (flashes % 2 === 0) {
+                    drawGrid();
+                    drawSnake();
+                    drawFood();
+                }
+
+                flashes++;
+            }, 150);
+        }
+
+        // ==================== RENDERING ====================
+        function draw() {
+            ctx.fillStyle = '#16213e';
+            ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            drawGrid();
+            drawFood();
+            drawSnake();
+        }
+
+        function drawGrid() {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+            ctx.lineWidth = 0.5;
+
+            for (let i = 0; i <= GRID_SIZE; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * CELL_SIZE, 0);
+                ctx.lineTo(i * CELL_SIZE, CANVAS_SIZE);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(0, i * CELL_SIZE);
+                ctx.lineTo(CANVAS_SIZE, i * CELL_SIZE);
+                ctx.stroke();
+            }
+        }
+
+        function drawSnake() {
+            snake.forEach((segment, index) => {
+                const x = segment.x * CELL_SIZE;
+                const y = segment.y * CELL_SIZE;
+
+                if (index === 0) {
+                    ctx.fillStyle = '#00ff88';
+                    ctx.shadowColor = '#00ff88';
+                    ctx.shadowBlur = 10;
+                } else {
+                    const brightness = 1 - (index / snake.length) * 0.6;
+                    ctx.fillStyle = `rgba(0, ${Math.floor(255 * brightness)}, ${Math.floor(136 * brightness)}, 1)`;
+                    ctx.shadowBlur = 0;
+                }
+
+                const padding = 1;
+                const radius = 4;
+                roundRect(ctx, x + padding, y + padding, CELL_SIZE - padding * 2, CELL_SIZE - padding * 2, radius);
+                ctx.fill();
+
+                if (index === 0) {
+                    drawEyes(x, y);
+                }
+            });
+
+            ctx.shadowBlur = 0;
+        }
+
+        function drawEyes(x, y) {
+            ctx.fillStyle = '#1a1a2e';
+            const eyeSize = 3;
+            let eye1X, eye1Y, eye2X, eye2Y;
+
+            if (direction.x === 1) {
+                eye1X = x + CELL_SIZE - 7; eye1Y = y + 6;
+                eye2X = x + CELL_SIZE - 7; eye2Y = y + CELL_SIZE - 6;
+            } else if (direction.x === -1) {
+                eye1X = x + 7; eye1Y = y + 6;
+                eye2X = x + 7; eye2Y = y + CELL_SIZE - 6;
+            } else if (direction.y === -1) {
+                eye1X = x + 6; eye1Y = y + 7;
+                eye2X = x + CELL_SIZE - 6; eye2Y = y + 7;
+            } else {
+                eye1X = x + 6; eye1Y = y + CELL_SIZE - 7;
+                eye2X = x + CELL_SIZE - 6; eye2Y = y + CELL_SIZE - 7;
+            }
+
+            ctx.beginPath();
+            ctx.arc(eye1X, eye1Y, eyeSize, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(eye2X, eye2Y, eyeSize, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawFood() {
+            const x = food.x * CELL_SIZE;
+            const y = food.y * CELL_SIZE;
+            const centerX = x + CELL_SIZE / 2;
+            const centerY = y + CELL_SIZE / 2;
+
+            ctx.shadowColor = '#ff4444';
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = '#ff4444';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, CELL_SIZE / 2 - 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            ctx.fillStyle = '#44ff44';
+            ctx.beginPath();
+            ctx.ellipse(centerX + 2, y + 4, 3, 5, Math.PI / 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function roundRect(ctx, x, y, width, height, radius) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.arcTo(x + width, y, x + width, y + height, radius);
+            ctx.arcTo(x + width, y + height, x, y + height, radius);
+            ctx.arcTo(x, y + height, x, y, radius);
+            ctx.arcTo(x, y, x + width, y, radius);
+            ctx.closePath();
+        }
+
+        function spawnFood() {
+            let newFood;
+            do {
+                newFood = {
+                    x: Math.floor(Math.random() * GRID_SIZE),
+                    y: Math.floor(Math.random() * GRID_SIZE)
+                };
+            } while (snake.some(seg => seg.x === newFood.x && seg.y === newFood.y));
+            food = newFood;
+        }
+
+        // ==================== CONTROLS ====================
+        function handleKeyPress(e) {
+            if (!isPlaying) return;
+
+            switch (e.key) {
+                case 'ArrowUp':
+                case 'w':
+                case 'W':
+                    if (direction.y !== 1) nextDirection = { x: 0, y: -1 };
+                    e.preventDefault();
+                    break;
+                case 'ArrowDown':
+                case 's':
+                case 'S':
+                    if (direction.y !== -1) nextDirection = { x: 0, y: 1 };
+                    e.preventDefault();
+                    break;
+                case 'ArrowLeft':
+                case 'a':
+                case 'A':
+                    if (direction.x !== 1) nextDirection = { x: -1, y: 0 };
+                    e.preventDefault();
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    if (direction.x !== -1) nextDirection = { x: 1, y: 0 };
+                    e.preventDefault();
+                    break;
+                case 'p':
+                case 'P':
+                    isPaused = !isPaused;
+                    if (isPaused) {
+                        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                        ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+                        ctx.fillStyle = '#fff';
+                        ctx.font = '30px Segoe UI';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('PAUSED', CANVAS_SIZE / 2, CANVAS_SIZE / 2);
+                    } else {
+                        draw();
+                    }
+                    break;
+            }
+        }
+
+        // ==================== PAYMENT ====================
+        async function getPremium() {
+            try {
+                const response = await fetch('/api/create-transaction', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId })
+                });
+
+                const data = await response.json();
+
+                if (data.redirectUrl) {
+                    // Redirect to Midtrans payment page
+                    window.location.href = data.redirectUrl;
+                } else {
+                    alert('Failed to create payment. Please try again.');
+                }
+            } catch (error) {
+                console.error('Payment error:', error);
+                alert('Payment failed. Please try again.');
+            }
+        }
+
+        // ==================== START ====================
+        window.onload = init;
+    </script>
+</body>
+</html>
