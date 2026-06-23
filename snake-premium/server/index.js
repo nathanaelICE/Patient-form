@@ -1,5 +1,9 @@
 require('dotenv').config();
 const express = require('express');
+
+if (!process.env.MIDTRANS_SERVER_KEY || !process.env.MIDTRANS_CLIENT_KEY) {
+  console.warn('Warning: Midtrans keys not configured. Payment features will not work.');
+}
 const cors = require('cors');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
