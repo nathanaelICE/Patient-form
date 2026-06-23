@@ -39,6 +39,9 @@ app.get('/api/check-premium/:userId', (req, res) => {
 app.post('/api/create-transaction', async (req, res) => {
   try {
     const { userId } = req.body;
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
     const orderId = `SNAKE-${userId}-${Date.now()}`;
     const amount = 10000; // Rp 10,000
 
@@ -54,12 +57,15 @@ app.post('/api/create-transaction', async (req, res) => {
 // Midtrans notification webhook
 app.post('/api/notification', async (req, res) => {
   try {
+    if (!req.body.order_id) {
+      return res.status(400).json({ error: 'order_id is required' });
+    }
     const notification = await midtrans.verifyNotification(req.body.order_id);
 
     if (notification.transactionStatus === 'capture' ||
         notification.transactionStatus === 'settlement') {
-      // Extract userId from orderId (format: SNAKE-userId-timestamp)
-      const userId = notification.orderId.split('-')[1];
+      // Extract userId from orderId (format: SNAKE-{uuid}-{timestamp})
+      const userId = notification.orderId.replace(/^SNAKE-/, '').replace(/-\d+$/, '');
       db.updatePremiumStatus(userId, notification.orderId);
     }
 
