@@ -227,6 +227,21 @@
             drawGrid();
         }
 
+        // Check URL for payment finish
+        function checkPaymentFinish() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('order_id')) {
+                // Payment finished, refresh premium status
+                checkPremiumStatus().then(() => {
+                    if (isPremium) {
+                        alert('Payment successful! Premium activated!');
+                    }
+                    // Clean URL
+                    window.history.replaceState({}, document.title, '/');
+                });
+            }
+        }
+
         async function checkPremiumStatus() {
             try {
                 const response = await fetch(`/api/check-premium/${userId}`);
@@ -595,7 +610,10 @@
         }
 
         // ==================== START ====================
-        window.onload = init;
+        window.onload = async () => {
+            await init();
+            checkPaymentFinish();
+        };
     </script>
 </body>
 </html>
