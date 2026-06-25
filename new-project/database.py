@@ -1,14 +1,30 @@
-from sqlmodel import SQLModel, create_engine, Session
+import os
+from sqlmodel import SQLModel, create_engine, Session, select
 from typing import Generator
+from passlib.context import CryptContext
 
 DATABASE_URL = "sqlite:///registration.db"
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 
+_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 
 def create_db_and_tables():
-    from models import Patient, Visit  # noqa: F401 — registers tables with SQLModel metadata
+    from models import Patient, Visit, AdminUser  # noqa: F401
     SQLModel.metadata.create_all(engine)
+
+
+def seed_admin(session: Session) -> None:
+    from models import AdminUser
+    existing = session.exec(select(AdminUser)).first()
+    if existing:
+        return
+    username = os.environ.get("ADMIN_USERNAME", "admin")
+    password = os.environ.get("ADMIN_PASSWORD", "changeme123")
+    admin = AdminUser(username=username, hashed_password=_pwd_context.hash(password))
+    session.add(admin)
+    session.commit()
 
 
 def get_session() -> Generator[Session, None, None]:
