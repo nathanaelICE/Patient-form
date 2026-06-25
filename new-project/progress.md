@@ -1,6 +1,6 @@
 # Patient Registration Harness — Progress Ledger
 
-## Status: Tests Pending (all other tasks complete)
+## Status: Complete
 
 ## Tasks
 
@@ -21,11 +21,13 @@
   - [x] Patient detail page with visit history and add-visit modal (`patient.html`)
   - [x] Wire up all `fetch()` calls against `/api/...`
 
-- [ ] Task 4: Tests — `tests/`
-  - [ ] Write patient endpoint tests (`test_patients.py`)
-  - [ ] Write visit endpoint tests (`test_visits.py`)
+- [x] Task 4: Tests — `tests/`
+  - [x] Write patient endpoint tests (`test_patients.py`) — 7 tests
+  - [x] Write visit endpoint tests (`test_visits.py`) — 8 tests
+  - Uses in-memory SQLite via `conftest.py` fixture; 15/15 passing
 
 ## Commits
 
 - 987bf80 — feat: initialize patient registration harness (skeleton, all stubs)
 - eb0a0a7 — chore: remove snake-premium and unrelated files, keep only new-project
+- 2c99b9e — feat: implement full patient registration harness (Tasks 1-3 complete)
