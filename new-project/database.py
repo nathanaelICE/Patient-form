@@ -7,8 +7,8 @@ engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 
 
 def create_db_and_tables():
-    # TODO: implement after models.py is complete (Tab 1)
-    pass
+    from models import Patient, Visit  # noqa: F401 — registers tables with SQLModel metadata
+    SQLModel.metadata.create_all(engine)
 
 
 def get_session() -> Generator[Session, None, None]:

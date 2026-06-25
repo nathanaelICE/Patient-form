@@ -7,7 +7,182 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- TODO: implement patient list + register modal (Tab 3) -->
-  <h1>Patient Registration</h1>
+
+  <header class="app-header">
+    <h1 class="app-title">Patient Registration</h1>
+    <button class="btn btn-primary" id="openRegisterBtn">+ Register Patient</button>
+  </header>
+
+  <main class="main-content">
+    <div class="table-wrapper">
+      <table class="patient-table" id="patientTable">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Gender</th>
+            <th>Phone</th>
+            <th>Date of Birth</th>
+          </tr>
+        </thead>
+        <tbody id="patientTableBody">
+          <!-- Rows populated by JS -->
+        </tbody>
+      </table>
+      <p class="empty-state" id="emptyState">No patients registered yet.</p>
+    </div>
+  </main>
+
+  <!-- Register Patient Modal -->
+  <div class="modal-overlay" id="registerModal" role="dialog" aria-modal="true" aria-labelledby="registerModalTitle" hidden>
+    <div class="modal-dialog">
+      <h2 class="modal-title" id="registerModalTitle">Register Patient</h2>
+      <form id="registerForm" novalidate>
+        <div class="form-group">
+          <label for="regName">Name <span class="required">*</span></label>
+          <input type="text" id="regName" name="name" required placeholder="Full name" />
+        </div>
+        <div class="form-group">
+          <label for="regDob">Date of Birth <span class="required">*</span></label>
+          <input type="date" id="regDob" name="date_of_birth" required />
+        </div>
+        <div class="form-group">
+          <label for="regGender">Gender <span class="required">*</span></label>
+          <select id="regGender" name="gender" required>
+            <option value="" disabled selected>Select gender</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="regPhone">Phone <span class="optional">(optional)</span></label>
+          <input type="text" id="regPhone" name="phone" placeholder="e.g. 08123456789" />
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-primary">Submit</button>
+          <button type="button" class="btn btn-secondary" id="cancelRegisterBtn">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // ── Modal open/close ──────────────────────────────────────────────────────
+    const registerModal = document.getElementById('registerModal');
+    const openRegisterBtn = document.getElementById('openRegisterBtn');
+    const cancelRegisterBtn = document.getElementById('cancelRegisterBtn');
+    const registerForm = document.getElementById('registerForm');
+
+    function openModal() {
+      registerModal.hidden = false;
+      document.getElementById('regName').focus();
+    }
+
+    function closeModal() {
+      registerModal.hidden = true;
+      registerForm.reset();
+    }
+
+    openRegisterBtn.addEventListener('click', openModal);
+    cancelRegisterBtn.addEventListener('click', closeModal);
+
+    // Close modal when clicking backdrop
+    registerModal.addEventListener('click', function (e) {
+      if (e.target === registerModal) closeModal();
+    });
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !registerModal.hidden) closeModal();
+    });
+
+    // ── Patient row click → navigate to detail page ───────────────────────────
+    function navigateToPatient(patientId) {
+      // TODO: navigate to patient detail
+      window.location.href = 'patient.html?id=' + encodeURIComponent(patientId);
+    }
+
+    // ── Load patient list ─────────────────────────────────────────────────────
+    async function loadPatients() {
+      try {
+        const response = await fetch('/api/patients');
+        const data = await response.json();
+        renderPatients(data);
+      } catch (err) {
+        console.error('Failed to load patients:', err);
+      }
+    }
+
+    function renderPatients(patients) {
+      const tbody = document.getElementById('patientTableBody');
+      const emptyState = document.getElementById('emptyState');
+
+      tbody.innerHTML = '';
+
+      if (!patients || patients.length === 0) {
+        emptyState.style.display = 'block';
+        return;
+      }
+
+      emptyState.style.display = 'none';
+
+      patients.forEach(function (p) {
+        const tr = document.createElement('tr');
+        tr.classList.add('patient-row');
+        tr.setAttribute('tabindex', '0');
+        tr.setAttribute('role', 'button');
+        tr.setAttribute('aria-label', 'View patient ' + p.name);
+
+        tr.innerHTML =
+          '<td>' + (p.id || '') + '</td>' +
+          '<td>' + (p.name || '') + '</td>' +
+          '<td>' + (p.gender || '') + '</td>' +
+          '<td>' + (p.phone || '-') + '</td>' +
+          '<td>' + (p.date_of_birth || '') + '</td>';
+
+        tr.addEventListener('click', function () { navigateToPatient(p.id); });
+        tr.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') navigateToPatient(p.id);
+        });
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    // ── Register form submit ──────────────────────────────────────────────────
+    registerForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      submitRegister();
+    });
+
+    async function submitRegister() {
+      const phone = document.getElementById('regPhone').value.trim();
+      const formData = {
+        name: document.getElementById('regName').value.trim(),
+        date_of_birth: document.getElementById('regDob').value,
+        gender: document.getElementById('regGender').value,
+      };
+      if (phone) formData.phone = phone;
+
+      try {
+        const response = await fetch('/api/patients', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+        });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        await response.json();
+        closeModal();
+        loadPatients();
+      } catch (err) {
+        console.error('Failed to register patient:', err);
+      }
+    }
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    loadPatients();
+  </script>
+
 </body>
 </html>

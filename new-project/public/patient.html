@@ -7,7 +7,218 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- TODO: implement patient detail + visit history + add-visit modal (Tab 3) -->
-  <h1>Patient Detail</h1>
+
+  <header class="app-header">
+    <a href="index.html" class="back-link">&larr; Back to list</a>
+    <h1 class="app-title">Patient Detail</h1>
+  </header>
+
+  <main class="main-content">
+
+    <!-- Patient Info Section -->
+    <section class="patient-info card" id="patientInfo">
+      <h2 class="section-title">Patient Information</h2>
+      <dl class="info-grid">
+        <dt>Name</dt>
+        <dd id="infoName"><span class="placeholder">—</span></dd>
+
+        <dt>Date of Birth</dt>
+        <dd id="infoDob"><span class="placeholder">—</span></dd>
+
+        <dt>Gender</dt>
+        <dd id="infoGender"><span class="placeholder">—</span></dd>
+
+        <dt>Phone</dt>
+        <dd id="infoPhone"><span class="placeholder">—</span></dd>
+      </dl>
+    </section>
+
+    <!-- Visit History Section -->
+    <section class="visit-history card">
+      <div class="section-header">
+        <h2 class="section-title">Visit History</h2>
+        <button class="btn btn-primary" id="openAddVisitBtn">+ Add Visit</button>
+      </div>
+      <div class="table-wrapper">
+        <table class="visit-table" id="visitTable">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Chief Complaint</th>
+              <th>Diagnosis</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody id="visitTableBody">
+            <!-- Rows populated by JS -->
+          </tbody>
+        </table>
+        <p class="empty-state" id="visitEmptyState">No visits recorded yet.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Add Visit Modal -->
+  <div class="modal-overlay" id="addVisitModal" role="dialog" aria-modal="true" aria-labelledby="addVisitModalTitle" hidden>
+    <div class="modal-dialog">
+      <h2 class="modal-title" id="addVisitModalTitle">Add Visit</h2>
+      <form id="addVisitForm" novalidate>
+        <div class="form-group">
+          <label for="visitDate">Date <span class="required">*</span></label>
+          <input type="date" id="visitDate" name="date" required />
+        </div>
+        <div class="form-group">
+          <label for="visitComplaint">Chief Complaint <span class="required">*</span></label>
+          <input type="text" id="visitComplaint" name="chief_complaint" required placeholder="e.g. Headache, fever" />
+        </div>
+        <div class="form-group">
+          <label for="visitDiagnosis">Diagnosis <span class="optional">(optional)</span></label>
+          <input type="text" id="visitDiagnosis" name="diagnosis" placeholder="e.g. Migraine" />
+        </div>
+        <div class="form-group">
+          <label for="visitNotes">Notes <span class="optional">(optional)</span></label>
+          <textarea id="visitNotes" name="notes" rows="3" placeholder="Additional notes..."></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-primary">Submit</button>
+          <button type="button" class="btn btn-secondary" id="cancelAddVisitBtn">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function getPatientId() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('id');
+    }
+
+    // ── Modal open/close ──────────────────────────────────────────────────────
+    const addVisitModal = document.getElementById('addVisitModal');
+    const openAddVisitBtn = document.getElementById('openAddVisitBtn');
+    const cancelAddVisitBtn = document.getElementById('cancelAddVisitBtn');
+    const addVisitForm = document.getElementById('addVisitForm');
+
+    function openVisitModal() {
+      addVisitModal.hidden = false;
+      document.getElementById('visitDate').focus();
+    }
+
+    function closeVisitModal() {
+      addVisitModal.hidden = true;
+      addVisitForm.reset();
+    }
+
+    openAddVisitBtn.addEventListener('click', openVisitModal);
+    cancelAddVisitBtn.addEventListener('click', closeVisitModal);
+
+    addVisitModal.addEventListener('click', function (e) {
+      if (e.target === addVisitModal) closeVisitModal();
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !addVisitModal.hidden) closeVisitModal();
+    });
+
+    // ── Load patient info ─────────────────────────────────────────────────────
+    async function loadPatientInfo() {
+      const patientId = getPatientId();
+      if (!patientId) {
+        document.getElementById('infoName').textContent = 'Unknown patient';
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/patients/' + patientId);
+        const data = await response.json();
+        renderPatientInfo(data);
+      } catch (err) {
+        console.error('Failed to load patient info:', err);
+      }
+    }
+
+    function renderPatientInfo(patient) {
+      document.getElementById('infoName').textContent = patient.name || '—';
+      document.getElementById('infoDob').textContent = patient.date_of_birth || '—';
+      document.getElementById('infoGender').textContent = patient.gender || '—';
+      document.getElementById('infoPhone').textContent = patient.phone || '—';
+      document.title = 'Patient — ' + (patient.name || 'Detail');
+    }
+
+    // ── Load visit history ────────────────────────────────────────────────────
+    async function loadVisits() {
+      const patientId = getPatientId();
+      if (!patientId) return;
+
+      try {
+        const response = await fetch('/api/patients/' + patientId + '/visits');
+        const data = await response.json();
+        renderVisits(data);
+      } catch (err) {
+        console.error('Failed to load visits:', err);
+      }
+    }
+
+    function renderVisits(visits) {
+      const tbody = document.getElementById('visitTableBody');
+      const emptyState = document.getElementById('visitEmptyState');
+
+      tbody.innerHTML = '';
+
+      if (!visits || visits.length === 0) {
+        emptyState.style.display = 'block';
+        return;
+      }
+
+      emptyState.style.display = 'none';
+
+      visits.forEach(function (v) {
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td>' + (v.date || '') + '</td>' +
+          '<td>' + (v.chief_complaint || '') + '</td>' +
+          '<td>' + (v.diagnosis || '-') + '</td>' +
+          '<td>' + (v.notes || '-') + '</td>';
+        tbody.appendChild(tr);
+      });
+    }
+
+    // ── Add visit form submit ─────────────────────────────────────────────────
+    addVisitForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      submitVisit();
+    });
+
+    async function submitVisit() {
+      const patientId = getPatientId();
+      const formData = {
+        date: document.getElementById('visitDate').value,
+        chief_complaint: document.getElementById('visitComplaint').value.trim(),
+        diagnosis: document.getElementById('visitDiagnosis').value.trim() || null,
+        notes: document.getElementById('visitNotes').value.trim() || null,
+      };
+
+      try {
+        const response = await fetch('/api/patients/' + patientId + '/visits', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+        });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        await response.json();
+        closeVisitModal();
+        loadVisits();
+      } catch (err) {
+        console.error('Failed to add visit:', err);
+      }
+    }
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    loadPatientInfo();
+    loadVisits();
+  </script>
+
 </body>
 </html>

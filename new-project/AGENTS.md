@@ -1,32 +1,42 @@
-# Multi-Agent Conventions
+# Patient Registration Harness
 
-This project is built using 3 parallel PowerShell tabs. Each tab owns specific files and must not edit files outside its scope.
+## Quick Start
+```bash
+uv sync                                  # install dependencies
+uv run uvicorn main:app --reload         # dev server (auto-reload)
+uv run pytest                            # run tests
+```
 
-## Tab Assignments
+App: `http://localhost:8000` — API docs: `http://localhost:8000/docs`
 
-### Tab 1 — Database
+## Hard Constraints
+- Never commit `registration.db` or `.env`
+- All API routes prefixed `/api`
+- Each router file owns one resource only
+- Frontend communicates with backend only via `fetch()` against `/api/...`
+
+## Topic Docs
+- [Frontend](docs/agents-frontend.md)
+- [Backend](docs/agents-backend.md)
+- [Database](docs/agents-database.md)
+
+## Agent Assignments
+Three agents work in parallel, each owning specific files. Do not edit another agent's files.
+
+### Agent 1 — Database
 **Owns:** `database.py`, `models.py`
-- Implement SQLite engine and session dependency
-- Define `Patient` and `Visit` SQLModel table classes
-- Export `create_db_and_tables()` for use by `main.py`
+See [Database topic doc](docs/agents-database.md).
 
-### Tab 2 — Backend
+### Agent 2 — Backend
 **Owns:** `schemas.py`, `routers/patients.py`, `routers/visits.py`, `main.py`
-- Implement all 5 API endpoints
-- Wire routers into `main.py`
-- Mount `public/` as StaticFiles
-- Depends on Tab 1 completing `models.py` before implementing endpoints
+See [Backend topic doc](docs/agents-backend.md).
+Depends on Agent 1 completing `models.py` before implementing endpoints.
 
-### Tab 3 — Frontend
+### Agent 3 — Frontend
 **Owns:** `public/index.html`, `public/patient.html`, `public/style.css`
-- Implement patient list page with register modal
-- Implement patient detail page with visit history and add-visit modal
-- All data via `fetch()` against `/api/...`
-- Can work on HTML/CSS structure independently; wire up fetch() after Tab 2 is done
+See [Frontend topic doc](docs/agents-frontend.md).
+Can build HTML/CSS structure independently; wire `fetch()` after Agent 2 is done.
 
 ## Dependency Order
-1. Tab 1 finishes `models.py` → Tab 2 can implement endpoints
-2. Tab 2 finishes API endpoints → Tab 3 can wire up `fetch()` calls
-
-## Coordination Rule
-Each tab commits its own work. Do not edit another tab's files.
+1. Agent 1 finishes `models.py` → Agent 2 can implement endpoints
+2. Agent 2 finishes API endpoints → Agent 3 can wire up `fetch()` calls
