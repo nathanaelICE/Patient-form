@@ -10,7 +10,9 @@
 
   <header class="app-header">
     <h1 class="app-title">Patient Registration</h1>
-    <button class="btn btn-primary" id="openRegisterBtn">+ Register Patient</button>
+    <div class="header-right" id="headerRight">
+      <!-- Populated by JS after role detection -->
+    </div>
   </header>
 
   <main class="main-content">
@@ -23,15 +25,36 @@
             <th>Gender</th>
             <th>Phone</th>
             <th>Date of Birth</th>
+            <th class="admin-col" hidden>Actions</th>
           </tr>
         </thead>
-        <tbody id="patientTableBody">
-          <!-- Rows populated by JS -->
-        </tbody>
+        <tbody id="patientTableBody"></tbody>
       </table>
       <p class="empty-state" id="emptyState">No patients registered yet.</p>
     </div>
   </main>
+
+  <!-- Login Modal -->
+  <div class="modal-overlay" id="loginModal" role="dialog" aria-modal="true" aria-labelledby="loginModalTitle" hidden>
+    <div class="modal-dialog">
+      <h2 class="modal-title" id="loginModalTitle">Admin Login</h2>
+      <form id="loginForm" novalidate>
+        <div class="form-group">
+          <label for="loginUsername">Username <span class="required">*</span></label>
+          <input type="text" id="loginUsername" name="username" required autocomplete="username" />
+        </div>
+        <div class="form-group">
+          <label for="loginPassword">Password <span class="required">*</span></label>
+          <input type="password" id="loginPassword" name="password" required autocomplete="current-password" />
+          <span class="form-error" id="loginError">Invalid credentials. Please try again.</span>
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-primary">Login as Admin</button>
+          <button type="button" class="btn btn-secondary" id="cancelLoginBtn">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- Register Patient Modal -->
   <div class="modal-overlay" id="registerModal" role="dialog" aria-modal="true" aria-labelledby="registerModalTitle" hidden>
@@ -67,82 +90,272 @@
     </div>
   </div>
 
-  <script>
-    // ── Modal open/close ──────────────────────────────────────────────────────
-    const registerModal = document.getElementById('registerModal');
-    const openRegisterBtn = document.getElementById('openRegisterBtn');
-    const cancelRegisterBtn = document.getElementById('cancelRegisterBtn');
-    const registerForm = document.getElementById('registerForm');
+  <!-- Edit Patient Modal -->
+  <div class="modal-overlay" id="editPatientModal" role="dialog" aria-modal="true" aria-labelledby="editPatientModalTitle" hidden>
+    <div class="modal-dialog">
+      <h2 class="modal-title" id="editPatientModalTitle">Edit Patient</h2>
+      <form id="editPatientForm" novalidate>
+        <input type="hidden" id="editPatientId" />
+        <div class="form-group">
+          <label for="editName">Name <span class="required">*</span></label>
+          <input type="text" id="editName" name="name" required placeholder="Full name" />
+        </div>
+        <div class="form-group">
+          <label for="editDob">Date of Birth <span class="required">*</span></label>
+          <input type="date" id="editDob" name="date_of_birth" required />
+        </div>
+        <div class="form-group">
+          <label for="editGender">Gender <span class="required">*</span></label>
+          <select id="editGender" name="gender" required>
+            <option value="" disabled>Select gender</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="editPhone">Phone <span class="optional">(optional)</span></label>
+          <input type="text" id="editPhone" name="phone" placeholder="e.g. 08123456789" />
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+          <button type="button" class="btn btn-secondary" id="cancelEditPatientBtn">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
-    function openModal() {
+  <script>
+    var isAdmin = false;
+    var patients = [];
+
+    // ── Role detection ────────────────────────────────────────────────────────
+    async function detectRole() {
+      try {
+        var resp = await fetch('/api/me');
+        var data = await resp.json();
+        isAdmin = data.is_admin === true;
+      } catch (e) {
+        isAdmin = false;
+      }
+      renderHeader();
+      renderAdminCols();
+    }
+
+    function renderHeader() {
+      var headerRight = document.getElementById('headerRight');
+      if (isAdmin) {
+        headerRight.innerHTML =
+          '<span class="admin-badge">Admin</span>' +
+          '<button class="btn btn-ghost btn-sm" id="logoutBtn">Logout</button>' +
+          '<button class="btn btn-primary" id="openRegisterBtn">+ Register Patient</button>';
+        document.getElementById('logoutBtn').addEventListener('click', logout);
+        document.getElementById('openRegisterBtn').addEventListener('click', openRegisterModal);
+      } else {
+        headerRight.innerHTML =
+          '<button class="btn btn-ghost" id="loginBtn">Login</button>';
+        document.getElementById('loginBtn').addEventListener('click', openLoginModal);
+      }
+    }
+
+    function renderAdminCols() {
+      var th = document.querySelector('.admin-col');
+      if (th) th.hidden = !isAdmin;
+    }
+
+    // ── Logout ────────────────────────────────────────────────────────────────
+    async function logout() {
+      await fetch('/api/logout', { method: 'POST' });
+      isAdmin = false;
+      renderHeader();
+      renderAdminCols();
+      loadPatients();
+    }
+
+    // ── Login modal ───────────────────────────────────────────────────────────
+    var loginModal = document.getElementById('loginModal');
+    var loginForm = document.getElementById('loginForm');
+    var loginError = document.getElementById('loginError');
+
+    function openLoginModal() {
+      loginModal.hidden = false;
+      loginError.classList.remove('visible');
+      loginForm.reset();
+      document.getElementById('loginUsername').focus();
+    }
+
+    function closeLoginModal() {
+      loginModal.hidden = true;
+      loginForm.reset();
+    }
+
+    document.getElementById('cancelLoginBtn').addEventListener('click', closeLoginModal);
+    loginModal.addEventListener('click', function(e) { if (e.target === loginModal) closeLoginModal(); });
+
+    loginForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      loginError.classList.remove('visible');
+      var body = {
+        username: document.getElementById('loginUsername').value.trim(),
+        password: document.getElementById('loginPassword').value,
+      };
+      try {
+        var resp = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (!resp.ok) {
+          loginError.classList.add('visible');
+          return;
+        }
+        closeLoginModal();
+        isAdmin = true;
+        renderHeader();
+        renderAdminCols();
+        loadPatients();
+      } catch (err) {
+        loginError.classList.add('visible');
+      }
+    });
+
+    // ── Register modal ────────────────────────────────────────────────────────
+    var registerModal = document.getElementById('registerModal');
+    var registerForm = document.getElementById('registerForm');
+
+    function openRegisterModal() {
       registerModal.hidden = false;
       document.getElementById('regName').focus();
     }
 
-    function closeModal() {
+    function closeRegisterModal() {
       registerModal.hidden = true;
       registerForm.reset();
     }
 
-    openRegisterBtn.addEventListener('click', openModal);
-    cancelRegisterBtn.addEventListener('click', closeModal);
+    document.getElementById('cancelRegisterBtn').addEventListener('click', closeRegisterModal);
+    registerModal.addEventListener('click', function(e) { if (e.target === registerModal) closeRegisterModal(); });
 
-    // Close modal when clicking backdrop
-    registerModal.addEventListener('click', function (e) {
-      if (e.target === registerModal) closeModal();
+    registerForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      var phone = document.getElementById('regPhone').value.trim();
+      var formData = {
+        name: document.getElementById('regName').value.trim(),
+        date_of_birth: document.getElementById('regDob').value,
+        gender: document.getElementById('regGender').value,
+      };
+      if (phone) formData.phone = phone;
+      try {
+        var resp = await fetch('/api/patients', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+        });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        closeRegisterModal();
+        loadPatients();
+      } catch (err) {
+        console.error('Failed to register patient:', err);
+      }
     });
 
-    // Close modal on Escape key
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && !registerModal.hidden) closeModal();
+    // ── Edit patient modal ────────────────────────────────────────────────────
+    var editPatientModal = document.getElementById('editPatientModal');
+    var editPatientForm = document.getElementById('editPatientForm');
+
+    function openEditPatientModal(p) {
+      document.getElementById('editPatientId').value = p.id;
+      document.getElementById('editName').value = p.name || '';
+      document.getElementById('editDob').value = p.date_of_birth || '';
+      document.getElementById('editGender').value = p.gender || '';
+      document.getElementById('editPhone').value = p.phone || '';
+      editPatientModal.hidden = false;
+      document.getElementById('editName').focus();
+    }
+
+    function closeEditPatientModal() {
+      editPatientModal.hidden = true;
+      editPatientForm.reset();
+    }
+
+    document.getElementById('cancelEditPatientBtn').addEventListener('click', closeEditPatientModal);
+    editPatientModal.addEventListener('click', function(e) { if (e.target === editPatientModal) closeEditPatientModal(); });
+
+    editPatientForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      var id = document.getElementById('editPatientId').value;
+      var phone = document.getElementById('editPhone').value.trim();
+      var body = {
+        name: document.getElementById('editName').value.trim(),
+        date_of_birth: document.getElementById('editDob').value,
+        gender: document.getElementById('editGender').value,
+        phone: phone || null,
+      };
+      try {
+        var resp = await fetch('/api/patients/' + id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        closeEditPatientModal();
+        loadPatients();
+      } catch (err) {
+        console.error('Failed to update patient:', err);
+      }
     });
 
-    // ── Patient row click → navigate to detail page ───────────────────────────
+    // ── Patient list ──────────────────────────────────────────────────────────
     function navigateToPatient(patientId) {
-      // TODO: navigate to patient detail
       window.location.href = 'patient.html?id=' + encodeURIComponent(patientId);
     }
 
-    // ── Load patient list ─────────────────────────────────────────────────────
     async function loadPatients() {
       try {
-        const response = await fetch('/api/patients');
-        const data = await response.json();
-        renderPatients(data);
+        var resp = await fetch('/api/patients');
+        patients = await resp.json();
+        renderPatients(patients);
       } catch (err) {
         console.error('Failed to load patients:', err);
       }
     }
 
-    function renderPatients(patients) {
-      const tbody = document.getElementById('patientTableBody');
-      const emptyState = document.getElementById('emptyState');
-
+    function renderPatients(list) {
+      var tbody = document.getElementById('patientTableBody');
+      var emptyState = document.getElementById('emptyState');
       tbody.innerHTML = '';
 
-      if (!patients || patients.length === 0) {
+      if (!list || list.length === 0) {
         emptyState.style.display = 'block';
         return;
       }
-
       emptyState.style.display = 'none';
 
-      patients.forEach(function (p) {
-        const tr = document.createElement('tr');
+      list.forEach(function(p) {
+        var tr = document.createElement('tr');
         tr.classList.add('patient-row');
         tr.setAttribute('tabindex', '0');
         tr.setAttribute('role', 'button');
         tr.setAttribute('aria-label', 'View patient ' + p.name);
+
+        var actionsHtml = '';
+        if (isAdmin) {
+          actionsHtml = '<td class="actions-cell" onclick="event.stopPropagation()">' +
+            '<button class="btn btn-secondary btn-icon" title="Edit patient" onclick="openEditPatientModal(' + JSON.stringify(p) + ')">&#9998;</button>' +
+            '<button class="btn btn-danger btn-icon" title="Delete patient" onclick="showDeleteConfirm(this, ' + p.id + ', ' + JSON.stringify(p.name) + ')">&#128465;</button>' +
+            '</td>';
+        }
 
         tr.innerHTML =
           '<td>' + (p.id || '') + '</td>' +
           '<td>' + (p.name || '') + '</td>' +
           '<td>' + (p.gender || '') + '</td>' +
           '<td>' + (p.phone || '-') + '</td>' +
-          '<td>' + (p.date_of_birth || '') + '</td>';
+          '<td>' + (p.date_of_birth || '') + '</td>' +
+          actionsHtml;
 
-        tr.addEventListener('click', function () { navigateToPatient(p.id); });
-        tr.addEventListener('keydown', function (e) {
+        tr.addEventListener('click', function() { navigateToPatient(p.id); });
+        tr.addEventListener('keydown', function(e) {
           if (e.key === 'Enter' || e.key === ' ') navigateToPatient(p.id);
         });
 
@@ -150,38 +363,43 @@
       });
     }
 
-    // ── Register form submit ──────────────────────────────────────────────────
-    registerForm.addEventListener('submit', function (e) {
-      e.preventDefault();
-      submitRegister();
-    });
+    function showDeleteConfirm(btn, patientId, patientName) {
+      var tr = btn.closest('tr');
+      var colCount = tr.cells.length;
+      var confirmTr = document.createElement('tr');
+      confirmTr.classList.add('confirm-strip');
+      confirmTr.innerHTML =
+        '<td colspan="' + colCount + '">' +
+        '<div class="confirm-strip-content">' +
+        '<span>Delete <strong>' + patientName + '</strong>? This cannot be undone.</span>' +
+        '<button class="btn btn-danger btn-icon" onclick="confirmDeletePatient(' + patientId + ', this.closest(\'tr\'))">Confirm</button>' +
+        '<button class="btn btn-secondary btn-icon" onclick="this.closest(\'tr\').remove()">Cancel</button>' +
+        '</div></td>';
+      tr.after(confirmTr);
+    }
 
-    async function submitRegister() {
-      const phone = document.getElementById('regPhone').value.trim();
-      const formData = {
-        name: document.getElementById('regName').value.trim(),
-        date_of_birth: document.getElementById('regDob').value,
-        gender: document.getElementById('regGender').value,
-      };
-      if (phone) formData.phone = phone;
-
+    async function confirmDeletePatient(patientId, confirmTr) {
       try {
-        const response = await fetch('/api/patients', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
-        });
-        if (!response.ok) throw new Error('HTTP ' + response.status);
-        await response.json();
-        closeModal();
+        var resp = await fetch('/api/patients/' + patientId, { method: 'DELETE' });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        confirmTr.remove();
         loadPatients();
       } catch (err) {
-        console.error('Failed to register patient:', err);
+        console.error('Failed to delete patient:', err);
       }
     }
 
+    // ── Keyboard close modals ─────────────────────────────────────────────────
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        if (!loginModal.hidden) closeLoginModal();
+        if (!registerModal.hidden) closeRegisterModal();
+        if (!editPatientModal.hidden) closeEditPatientModal();
+      }
+    });
+
     // ── Init ──────────────────────────────────────────────────────────────────
-    loadPatients();
+    detectRole().then(loadPatients);
   </script>
 
 </body>
