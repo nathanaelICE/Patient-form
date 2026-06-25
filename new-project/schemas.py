@@ -21,6 +21,13 @@ class PatientRead(BaseModel):
     created_at: datetime
 
 
+class PatientUpdate(BaseModel):
+    name: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    gender: Optional[str] = None
+    phone: Optional[str] = None
+
+
 class VisitCreate(BaseModel):
     date: date
     chief_complaint: str
@@ -38,3 +45,19 @@ class VisitRead(BaseModel):
     diagnosis: Optional[str]
     notes: Optional[str]
     created_at: datetime
+
+
+class VisitUpdate(BaseModel):
+    date: Optional[date] = None
+    chief_complaint: Optional[str] = None
+    diagnosis: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class MeResponse(BaseModel):
+    is_admin: bool
