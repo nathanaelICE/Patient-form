@@ -11,25 +11,22 @@
   <header class="app-header">
     <a href="index.html" class="back-link">&larr; Back to list</a>
     <h1 class="app-title">Patient Detail</h1>
+    <div class="header-right" id="headerRight"></div>
   </header>
 
   <main class="main-content">
 
     <!-- Patient Info Section -->
     <section class="patient-info card" id="patientInfo">
-      <h2 class="section-title">Patient Information</h2>
+      <div class="section-header">
+        <h2 class="section-title">Patient Information</h2>
+        <button class="btn btn-secondary admin-only" id="editPatientInfoBtn" hidden>&#9998; Edit</button>
+      </div>
       <dl class="info-grid">
-        <dt>Name</dt>
-        <dd id="infoName"><span class="placeholder">—</span></dd>
-
-        <dt>Date of Birth</dt>
-        <dd id="infoDob"><span class="placeholder">—</span></dd>
-
-        <dt>Gender</dt>
-        <dd id="infoGender"><span class="placeholder">—</span></dd>
-
-        <dt>Phone</dt>
-        <dd id="infoPhone"><span class="placeholder">—</span></dd>
+        <dt>Name</dt>       <dd id="infoName"><span class="placeholder">—</span></dd>
+        <dt>Date of Birth</dt> <dd id="infoDob"><span class="placeholder">—</span></dd>
+        <dt>Gender</dt>     <dd id="infoGender"><span class="placeholder">—</span></dd>
+        <dt>Phone</dt>      <dd id="infoPhone"><span class="placeholder">—</span></dd>
       </dl>
     </section>
 
@@ -37,7 +34,7 @@
     <section class="visit-history card">
       <div class="section-header">
         <h2 class="section-title">Visit History</h2>
-        <button class="btn btn-primary" id="openAddVisitBtn">+ Add Visit</button>
+        <button class="btn btn-primary admin-only" id="openAddVisitBtn" hidden>+ Add Visit</button>
       </div>
       <div class="table-wrapper">
         <table class="visit-table" id="visitTable">
@@ -47,17 +44,50 @@
               <th>Chief Complaint</th>
               <th>Diagnosis</th>
               <th>Notes</th>
+              <th class="admin-col" hidden>Actions</th>
             </tr>
           </thead>
-          <tbody id="visitTableBody">
-            <!-- Rows populated by JS -->
-          </tbody>
+          <tbody id="visitTableBody"></tbody>
         </table>
         <p class="empty-state" id="visitEmptyState">No visits recorded yet.</p>
       </div>
     </section>
 
   </main>
+
+  <!-- Edit Patient Modal -->
+  <div class="modal-overlay" id="editPatientModal" role="dialog" aria-modal="true" aria-labelledby="editPatientModalTitle" hidden>
+    <div class="modal-dialog">
+      <h2 class="modal-title" id="editPatientModalTitle">Edit Patient</h2>
+      <form id="editPatientForm" novalidate>
+        <div class="form-group">
+          <label for="editName">Name <span class="required">*</span></label>
+          <input type="text" id="editName" name="name" required placeholder="Full name" />
+        </div>
+        <div class="form-group">
+          <label for="editDob">Date of Birth <span class="required">*</span></label>
+          <input type="date" id="editDob" name="date_of_birth" required />
+        </div>
+        <div class="form-group">
+          <label for="editGender">Gender <span class="required">*</span></label>
+          <select id="editGender" name="gender" required>
+            <option value="" disabled>Select gender</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="editPhone">Phone <span class="optional">(optional)</span></label>
+          <input type="text" id="editPhone" name="phone" placeholder="e.g. 08123456789" />
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+          <button type="button" class="btn btn-secondary" id="cancelEditPatientBtn">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- Add Visit Modal -->
   <div class="modal-overlay" id="addVisitModal" role="dialog" aria-modal="true" aria-labelledby="addVisitModalTitle" hidden>
@@ -88,52 +118,89 @@
     </div>
   </div>
 
+  <!-- Edit Visit Modal -->
+  <div class="modal-overlay" id="editVisitModal" role="dialog" aria-modal="true" aria-labelledby="editVisitModalTitle" hidden>
+    <div class="modal-dialog">
+      <h2 class="modal-title" id="editVisitModalTitle">Edit Visit</h2>
+      <form id="editVisitForm" novalidate>
+        <input type="hidden" id="editVisitId" />
+        <div class="form-group">
+          <label for="editVisitDate">Date <span class="required">*</span></label>
+          <input type="date" id="editVisitDate" name="date" required />
+        </div>
+        <div class="form-group">
+          <label for="editVisitComplaint">Chief Complaint <span class="required">*</span></label>
+          <input type="text" id="editVisitComplaint" name="chief_complaint" required placeholder="e.g. Headache, fever" />
+        </div>
+        <div class="form-group">
+          <label for="editVisitDiagnosis">Diagnosis <span class="optional">(optional)</span></label>
+          <input type="text" id="editVisitDiagnosis" name="diagnosis" placeholder="e.g. Migraine" />
+        </div>
+        <div class="form-group">
+          <label for="editVisitNotes">Notes <span class="optional">(optional)</span></label>
+          <textarea id="editVisitNotes" name="notes" rows="3" placeholder="Additional notes..."></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+          <button type="button" class="btn btn-secondary" id="cancelEditVisitBtn">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    var isAdmin = false;
+    var currentPatient = null;
+
     function getPatientId() {
-      const params = new URLSearchParams(window.location.search);
-      return params.get('id');
+      return new URLSearchParams(window.location.search).get('id');
     }
 
-    // ── Modal open/close ──────────────────────────────────────────────────────
-    const addVisitModal = document.getElementById('addVisitModal');
-    const openAddVisitBtn = document.getElementById('openAddVisitBtn');
-    const cancelAddVisitBtn = document.getElementById('cancelAddVisitBtn');
-    const addVisitForm = document.getElementById('addVisitForm');
-
-    function openVisitModal() {
-      addVisitModal.hidden = false;
-      document.getElementById('visitDate').focus();
-    }
-
-    function closeVisitModal() {
-      addVisitModal.hidden = true;
-      addVisitForm.reset();
-    }
-
-    openAddVisitBtn.addEventListener('click', openVisitModal);
-    cancelAddVisitBtn.addEventListener('click', closeVisitModal);
-
-    addVisitModal.addEventListener('click', function (e) {
-      if (e.target === addVisitModal) closeVisitModal();
-    });
-
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && !addVisitModal.hidden) closeVisitModal();
-    });
-
-    // ── Load patient info ─────────────────────────────────────────────────────
-    async function loadPatientInfo() {
-      const patientId = getPatientId();
-      if (!patientId) {
-        document.getElementById('infoName').textContent = 'Unknown patient';
-        return;
-      }
-
+    // ── Role detection ────────────────────────────────────────────────────────
+    async function detectRole() {
       try {
-        const response = await fetch('/api/patients/' + patientId);
-        const data = await response.json();
-        renderPatientInfo(data);
+        var resp = await fetch('/api/me');
+        var data = await resp.json();
+        isAdmin = data.is_admin === true;
+      } catch (e) {
+        isAdmin = false;
+      }
+      renderHeader();
+      renderAdminControls();
+    }
+
+    function renderHeader() {
+      var headerRight = document.getElementById('headerRight');
+      if (isAdmin) {
+        headerRight.innerHTML =
+          '<span class="admin-badge">Admin</span>' +
+          '<button class="btn btn-ghost" id="logoutBtn">Logout</button>';
+        document.getElementById('logoutBtn').addEventListener('click', logout);
+      } else {
+        headerRight.innerHTML = '';
+      }
+    }
+
+    function renderAdminControls() {
+      document.getElementById('editPatientInfoBtn').hidden = !isAdmin;
+      document.getElementById('openAddVisitBtn').hidden = !isAdmin;
+      var th = document.querySelector('.admin-col');
+      if (th) th.hidden = !isAdmin;
+    }
+
+    async function logout() {
+      await fetch('/api/logout', { method: 'POST' });
+      window.location.reload();
+    }
+
+    // ── Patient info ──────────────────────────────────────────────────────────
+    async function loadPatientInfo() {
+      var patientId = getPatientId();
+      if (!patientId) { document.getElementById('infoName').textContent = 'Unknown patient'; return; }
+      try {
+        var resp = await fetch('/api/patients/' + patientId);
+        currentPatient = await resp.json();
+        renderPatientInfo(currentPatient);
       } catch (err) {
         console.error('Failed to load patient info:', err);
       }
@@ -147,77 +214,222 @@
       document.title = 'Patient — ' + (patient.name || 'Detail');
     }
 
-    // ── Load visit history ────────────────────────────────────────────────────
-    async function loadVisits() {
-      const patientId = getPatientId();
-      if (!patientId) return;
+    // ── Edit patient modal ────────────────────────────────────────────────────
+    var editPatientModal = document.getElementById('editPatientModal');
+    var editPatientForm = document.getElementById('editPatientForm');
 
+    document.getElementById('editPatientInfoBtn').addEventListener('click', function() {
+      if (!currentPatient) return;
+      document.getElementById('editName').value = currentPatient.name || '';
+      document.getElementById('editDob').value = currentPatient.date_of_birth || '';
+      document.getElementById('editGender').value = currentPatient.gender || '';
+      document.getElementById('editPhone').value = currentPatient.phone || '';
+      editPatientModal.hidden = false;
+      document.getElementById('editName').focus();
+    });
+
+    document.getElementById('cancelEditPatientBtn').addEventListener('click', function() {
+      editPatientModal.hidden = true; editPatientForm.reset();
+    });
+    editPatientModal.addEventListener('click', function(e) {
+      if (e.target === editPatientModal) { editPatientModal.hidden = true; editPatientForm.reset(); }
+    });
+
+    editPatientForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      var id = getPatientId();
+      var phone = document.getElementById('editPhone').value.trim();
+      var body = {
+        name: document.getElementById('editName').value.trim(),
+        date_of_birth: document.getElementById('editDob').value,
+        gender: document.getElementById('editGender').value,
+        phone: phone || null,
+      };
       try {
-        const response = await fetch('/api/patients/' + patientId + '/visits');
-        const data = await response.json();
-        renderVisits(data);
+        var resp = await fetch('/api/patients/' + id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        currentPatient = await resp.json();
+        renderPatientInfo(currentPatient);
+        editPatientModal.hidden = true;
+        editPatientForm.reset();
+      } catch (err) {
+        console.error('Failed to update patient:', err);
+      }
+    });
+
+    // ── Visit history ─────────────────────────────────────────────────────────
+    async function loadVisits() {
+      var patientId = getPatientId();
+      if (!patientId) return;
+      try {
+        var resp = await fetch('/api/patients/' + patientId + '/visits');
+        renderVisits(await resp.json());
       } catch (err) {
         console.error('Failed to load visits:', err);
       }
     }
 
     function renderVisits(visits) {
-      const tbody = document.getElementById('visitTableBody');
-      const emptyState = document.getElementById('visitEmptyState');
-
+      var tbody = document.getElementById('visitTableBody');
+      var emptyState = document.getElementById('visitEmptyState');
       tbody.innerHTML = '';
 
       if (!visits || visits.length === 0) {
         emptyState.style.display = 'block';
         return;
       }
-
       emptyState.style.display = 'none';
 
-      visits.forEach(function (v) {
-        const tr = document.createElement('tr');
+      visits.forEach(function(v) {
+        var tr = document.createElement('tr');
+        var actionsHtml = '';
+        if (isAdmin) {
+          actionsHtml = '<td class="actions-cell">' +
+            '<button class="btn btn-secondary btn-icon" title="Edit visit" onclick="openEditVisitModal(' + JSON.stringify(v) + ')">&#9998;</button>' +
+            '<button class="btn btn-danger btn-icon" title="Delete visit" onclick="showDeleteVisitConfirm(this, ' + v.id + ')">&#128465;</button>' +
+            '</td>';
+        }
         tr.innerHTML =
           '<td>' + (v.date || '') + '</td>' +
           '<td>' + (v.chief_complaint || '') + '</td>' +
           '<td>' + (v.diagnosis || '-') + '</td>' +
-          '<td>' + (v.notes || '-') + '</td>';
+          '<td>' + (v.notes || '-') + '</td>' +
+          actionsHtml;
         tbody.appendChild(tr);
       });
     }
 
-    // ── Add visit form submit ─────────────────────────────────────────────────
-    addVisitForm.addEventListener('submit', function (e) {
-      e.preventDefault();
-      submitVisit();
+    // ── Add visit modal ───────────────────────────────────────────────────────
+    var addVisitModal = document.getElementById('addVisitModal');
+    var addVisitForm = document.getElementById('addVisitForm');
+
+    document.getElementById('openAddVisitBtn').addEventListener('click', function() {
+      addVisitModal.hidden = false;
+      document.getElementById('visitDate').focus();
+    });
+    document.getElementById('cancelAddVisitBtn').addEventListener('click', function() {
+      addVisitModal.hidden = true; addVisitForm.reset();
+    });
+    addVisitModal.addEventListener('click', function(e) {
+      if (e.target === addVisitModal) { addVisitModal.hidden = true; addVisitForm.reset(); }
     });
 
-    async function submitVisit() {
-      const patientId = getPatientId();
-      const formData = {
+    addVisitForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      var patientId = getPatientId();
+      var body = {
         date: document.getElementById('visitDate').value,
         chief_complaint: document.getElementById('visitComplaint').value.trim(),
         diagnosis: document.getElementById('visitDiagnosis').value.trim() || null,
         notes: document.getElementById('visitNotes').value.trim() || null,
       };
-
       try {
-        const response = await fetch('/api/patients/' + patientId + '/visits', {
+        var resp = await fetch('/api/patients/' + patientId + '/visits', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(body),
         });
-        if (!response.ok) throw new Error('HTTP ' + response.status);
-        await response.json();
-        closeVisitModal();
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        addVisitModal.hidden = true;
+        addVisitForm.reset();
         loadVisits();
       } catch (err) {
         console.error('Failed to add visit:', err);
       }
+    });
+
+    // ── Edit visit modal ──────────────────────────────────────────────────────
+    var editVisitModal = document.getElementById('editVisitModal');
+    var editVisitForm = document.getElementById('editVisitForm');
+
+    function openEditVisitModal(v) {
+      document.getElementById('editVisitId').value = v.id;
+      document.getElementById('editVisitDate').value = v.date || '';
+      document.getElementById('editVisitComplaint').value = v.chief_complaint || '';
+      document.getElementById('editVisitDiagnosis').value = v.diagnosis || '';
+      document.getElementById('editVisitNotes').value = v.notes || '';
+      editVisitModal.hidden = false;
+      document.getElementById('editVisitDate').focus();
     }
 
+    document.getElementById('cancelEditVisitBtn').addEventListener('click', function() {
+      editVisitModal.hidden = true; editVisitForm.reset();
+    });
+    editVisitModal.addEventListener('click', function(e) {
+      if (e.target === editVisitModal) { editVisitModal.hidden = true; editVisitForm.reset(); }
+    });
+
+    editVisitForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      var patientId = getPatientId();
+      var visitId = document.getElementById('editVisitId').value;
+      var body = {
+        date: document.getElementById('editVisitDate').value,
+        chief_complaint: document.getElementById('editVisitComplaint').value.trim(),
+        diagnosis: document.getElementById('editVisitDiagnosis').value.trim() || null,
+        notes: document.getElementById('editVisitNotes').value.trim() || null,
+      };
+      try {
+        var resp = await fetch('/api/patients/' + patientId + '/visits/' + visitId, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        editVisitModal.hidden = true;
+        editVisitForm.reset();
+        loadVisits();
+      } catch (err) {
+        console.error('Failed to update visit:', err);
+      }
+    });
+
+    // ── Delete visit ──────────────────────────────────────────────────────────
+    function showDeleteVisitConfirm(btn, visitId) {
+      var tr = btn.closest('tr');
+      var colCount = tr.cells.length;
+      var confirmTr = document.createElement('tr');
+      confirmTr.classList.add('confirm-strip');
+      confirmTr.innerHTML =
+        '<td colspan="' + colCount + '">' +
+        '<div class="confirm-strip-content">' +
+        '<span>Delete this visit? This cannot be undone.</span>' +
+        '<button class="btn btn-danger btn-icon" onclick="confirmDeleteVisit(' + visitId + ', this.closest(\'tr\'))">Confirm</button>' +
+        '<button class="btn btn-secondary btn-icon" onclick="this.closest(\'tr\').remove()">Cancel</button>' +
+        '</div></td>';
+      tr.after(confirmTr);
+    }
+
+    async function confirmDeleteVisit(visitId, confirmTr) {
+      var patientId = getPatientId();
+      try {
+        var resp = await fetch('/api/patients/' + patientId + '/visits/' + visitId, { method: 'DELETE' });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        confirmTr.remove();
+        loadVisits();
+      } catch (err) {
+        console.error('Failed to delete visit:', err);
+      }
+    }
+
+    // ── Keyboard close ────────────────────────────────────────────────────────
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        if (!editPatientModal.hidden) { editPatientModal.hidden = true; editPatientForm.reset(); }
+        if (!addVisitModal.hidden) { addVisitModal.hidden = true; addVisitForm.reset(); }
+        if (!editVisitModal.hidden) { editVisitModal.hidden = true; editVisitForm.reset(); }
+      }
+    });
+
     // ── Init ──────────────────────────────────────────────────────────────────
-    loadPatientInfo();
-    loadVisits();
+    detectRole().then(function() {
+      loadPatientInfo();
+      loadVisits();
+    });
   </script>
 
 </body>
