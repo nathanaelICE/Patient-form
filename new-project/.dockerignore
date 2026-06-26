@@ -11,3 +11,7 @@ docs/
 .superpowers/
 *.md
 .python-version
+
+# Frontend: build fresh inside the image, don't ship local copies
+frontend/node_modules/
+frontend/dist/

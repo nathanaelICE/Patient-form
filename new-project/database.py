@@ -17,11 +17,21 @@ def create_db_and_tables():
 
 def seed_admin(session: Session) -> None:
     from models import AdminUser
-    existing = session.exec(select(AdminUser)).first()
-    if existing:
-        return
     username = os.environ.get("ADMIN_USERNAME", "admin")
     password = os.environ.get("ADMIN_PASSWORD", "changeme123")
+    existing = session.exec(select(AdminUser)).first()
+    if existing:
+        # Keep the admin credentials authoritative to the configured env vars
+        # so ADMIN_PASSWORD takes effect on every deploy, even on a database
+        # that was seeded earlier with a different password.
+        if existing.username != username or not _pwd_context.verify(
+            password, existing.hashed_password
+        ):
+            existing.username = username
+            existing.hashed_password = _pwd_context.hash(password)
+            session.add(existing)
+            session.commit()
+        return
     admin = AdminUser(username=username, hashed_password=_pwd_context.hash(password))
     session.add(admin)
     session.commit()
