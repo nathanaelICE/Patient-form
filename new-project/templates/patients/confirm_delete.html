@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Delete Patient — Patient Registration{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:480px;margin:2rem auto">
+  <h2>Delete Patient</h2>
+  <p>Delete <strong>{{ patient.name }}</strong>? This cannot be undone.</p>
+  <div class="modal-actions">
+    <form method="POST" action="/patients/{{ patient.id }}/delete" style="display:inline">
+      <button type="submit" class="btn btn-danger">Confirm Delete</button>
+    </form>
+    <a href="/patients/{{ patient.id }}" class="btn btn-secondary">Cancel</a>
+  </div>
+</div>
+{% endblock %}

@@ -112,6 +112,67 @@ def patients_create(
     return RedirectResponse("/patients", status_code=303)
 
 
+@router.get("/patients/{patient_id}/edit")
+def patient_edit_form(patient_id: int, request: Request, session: Session = Depends(get_session)):
+    if not _is_admin(request):
+        return RedirectResponse(f"/login?next=/patients/{patient_id}/edit", status_code=303)
+    patient = session.get(Patient, patient_id)
+    if not patient or patient.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    return templates.TemplateResponse(request, "patients/edit.html", {
+        "is_admin": True, "patient": patient,
+    })
+
+
+@router.post("/patients/{patient_id}/delete")
+def patient_delete(patient_id: int, request: Request, session: Session = Depends(get_session)):
+    if not _is_admin(request):
+        return RedirectResponse("/login", status_code=303)
+    patient = session.get(Patient, patient_id)
+    if not patient or patient.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    patient.deleted_at = datetime.utcnow()
+    session.add(patient)
+    session.commit()
+    return RedirectResponse("/patients", status_code=303)
+
+
+@router.get("/patients/{patient_id}/confirm-delete")
+def patient_confirm_delete(patient_id: int, request: Request, session: Session = Depends(get_session)):
+    if not _is_admin(request):
+        return RedirectResponse(f"/login?next=/patients/{patient_id}/confirm-delete", status_code=303)
+    patient = session.get(Patient, patient_id)
+    if not patient or patient.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    return templates.TemplateResponse(request, "patients/confirm_delete.html", {
+        "is_admin": True, "patient": patient,
+    })
+
+
+@router.post("/patients/{patient_id}")
+def patient_update(
+    patient_id: int,
+    request: Request,
+    name: str = Form(...),
+    date_of_birth: str = Form(...),
+    gender: str = Form(...),
+    phone: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    if not _is_admin(request):
+        return RedirectResponse(f"/login?next=/patients/{patient_id}/edit", status_code=303)
+    patient = session.get(Patient, patient_id)
+    if not patient or patient.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    patient.name = name.strip()
+    patient.date_of_birth = date_type.fromisoformat(date_of_birth)
+    patient.gender = gender.strip().lower()
+    patient.phone = phone.strip() or None
+    session.add(patient)
+    session.commit()
+    return RedirectResponse(f"/patients/{patient_id}", status_code=303)
+
+
 @router.get("/patients/{patient_id}")
 def patient_detail(patient_id: int, request: Request, session: Session = Depends(get_session)):
     patient = session.get(Patient, patient_id)

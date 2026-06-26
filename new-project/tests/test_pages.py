@@ -129,3 +129,61 @@ def test_patient_detail_shows_visits(client: TestClient, session: Session):
 def test_patient_detail_404(client: TestClient):
     resp = client.get("/patients/99999", follow_redirects=False)
     assert resp.status_code == 404
+
+
+# ── Patient Edit ─────────────────────────────────────────────────────────────
+
+def test_patient_edit_requires_admin(client: TestClient, session: Session):
+    import models
+    from datetime import date
+    p = models.Patient(name="Ed", date_of_birth=date(1990, 1, 1), gender="male")
+    session.add(p); session.commit()
+    resp = client.get(f"/patients/{p.id}/edit", follow_redirects=False)
+    assert resp.status_code == 303
+    assert "/login" in resp.headers["location"]
+
+
+def test_patient_edit_renders_for_admin(admin_client: TestClient, session: Session):
+    import models
+    from datetime import date
+    p = models.Patient(name="Fay", date_of_birth=date(1992, 5, 5), gender="female")
+    session.add(p); session.commit()
+    resp = admin_client.get(f"/patients/{p.id}/edit", follow_redirects=False)
+    assert resp.status_code == 200
+    assert b"Fay" in resp.content
+
+
+def test_patient_update_redirects_to_detail(admin_client: TestClient, session: Session):
+    import models
+    from datetime import date
+    p = models.Patient(name="Gil", date_of_birth=date(1988, 7, 7), gender="male")
+    session.add(p); session.commit()
+    resp = admin_client.post(
+        f"/patients/{p.id}",
+        data={"name": "Gilbert", "date_of_birth": "1988-07-07", "gender": "male", "phone": ""},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    assert resp.headers["location"] == f"/patients/{p.id}"
+
+
+def test_patient_confirm_delete_renders(admin_client: TestClient, session: Session):
+    import models
+    from datetime import date
+    p = models.Patient(name="Hal", date_of_birth=date(1970, 2, 2), gender="male")
+    session.add(p); session.commit()
+    resp = admin_client.get(f"/patients/{p.id}/confirm-delete", follow_redirects=False)
+    assert resp.status_code == 200
+    assert b"Hal" in resp.content
+
+
+def test_patient_delete_soft_deletes_and_redirects(admin_client: TestClient, session: Session):
+    import models
+    from datetime import date
+    p = models.Patient(name="Ivy", date_of_birth=date(1983, 9, 9), gender="female")
+    session.add(p); session.commit()
+    resp = admin_client.post(f"/patients/{p.id}/delete", follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/patients"
+    session.refresh(p)
+    assert p.deleted_at is not None
