@@ -3,3 +3,7 @@ __pycache__/
 .venv/
 registration.db
 .env
+
+# React frontend
+frontend/node_modules/
+frontend/dist/
