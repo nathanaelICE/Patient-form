@@ -3,9 +3,9 @@ from sqlmodel import SQLModel, create_engine, Session, select
 from typing import Generator
 from passlib.context import CryptContext
 
-DATABASE_URL = "sqlite:///registration.db"
+DATABASE_URL = os.environ["DATABASE_URL"]
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+engine = create_engine(DATABASE_URL)
 
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
