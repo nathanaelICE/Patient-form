@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Patient Registration{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+  <header class="app-header">
+    <h1 class="app-title">{% block header_title %}Patient Registration{% endblock %}</h1>
+    <div class="header-right">
+      {% if is_admin %}
+        <span class="admin-badge">Admin</span>
+        <form method="POST" action="/logout" style="display:inline">
+          <button type="submit" class="btn btn-ghost btn-sm">Logout</button>
+        </form>
+        {% block admin_header_actions %}{% endblock %}
+      {% else %}
+        <a href="/login" class="btn btn-ghost">Login</a>
+      {% endif %}
+    </div>
+  </header>
+
+  <main class="main-content">
+    {% block content %}{% endblock %}
+  </main>
+
+</body>
+</html>
