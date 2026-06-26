@@ -63,6 +63,23 @@ def logout_post(request: Request):
     return resp
 
 
+@router.get("/")
+def index():
+    return RedirectResponse("/patients", status_code=303)
+
+
+@router.get("/patients")
+def patients_list(request: Request, session: Session = Depends(get_session)):
+    patients = session.exec(
+        select(Patient).where(Patient.deleted_at == None).order_by(Patient.name)
+    ).all()
+    return templates.TemplateResponse(request, "patients/list.html", {
+        "request": request,
+        "is_admin": _is_admin(request),
+        "patients": patients,
+    })
+
+
 @router.get("/patients/new")
 def patient_new_page(request: Request):
     """Stub for Task 4 — register patient form."""

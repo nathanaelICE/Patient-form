@@ -32,3 +32,28 @@ def test_logout_clears_session_and_redirects(admin_client: TestClient):
     resp = admin_client.post("/logout", follow_redirects=False)
     assert resp.status_code == 303
     assert resp.headers["location"] == "/patients"
+
+
+# ── Patient List ──────────────────────────────────────────────────────────────
+
+def test_root_redirects_to_patients(client: TestClient):
+    resp = client.get("/", follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/patients"
+
+
+def test_patients_list_renders_empty(client: TestClient):
+    resp = client.get("/patients", follow_redirects=False)
+    assert resp.status_code == 200
+    assert b"No patients registered yet" in resp.content
+
+
+def test_patients_list_shows_patient(client: TestClient, session: Session):
+    import models
+    from datetime import date
+    p = models.Patient(name="Alice", date_of_birth=date(1990, 1, 1), gender="female")
+    session.add(p)
+    session.commit()
+    resp = client.get("/patients", follow_redirects=False)
+    assert resp.status_code == 200
+    assert b"Alice" in resp.content
