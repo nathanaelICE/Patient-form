@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Add Visit — Patient Registration{% endblock %}
+
+{% block content %}
+<a href="/patients/{{ patient.id }}" class="back-link">&#8592; Back to {{ patient.name }}</a>
+<div class="card" style="max-width:480px;margin:2rem auto">
+  <h2>Add Visit</h2>
+  <form method="POST" action="/patients/{{ patient.id }}/visits">
+    <div class="form-group">
+      <label for="date">Date <span class="required">*</span></label>
+      <input type="date" id="date" name="date" required />
+    </div>
+    <div class="form-group">
+      <label for="chief_complaint">Chief Complaint <span class="required">*</span></label>
+      <input type="text" id="chief_complaint" name="chief_complaint" required
+             placeholder="e.g. Headache, fever" />
+    </div>
+    <div class="form-group">
+      <label for="diagnosis">Diagnosis <span class="optional">(optional)</span></label>
+      <input type="text" id="diagnosis" name="diagnosis" placeholder="e.g. Migraine" />
+    </div>
+    <div class="form-group">
+      <label for="notes">Notes <span class="optional">(optional)</span></label>
+      <textarea id="notes" name="notes" rows="3" placeholder="Additional notes..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button type="submit" class="btn btn-primary">Submit</button>
+      <a href="/patients/{{ patient.id }}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

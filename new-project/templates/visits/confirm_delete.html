@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Delete Visit — Patient Registration{% endblock %}
+
+{% block content %}
+<a href="/patients/{{ patient.id }}" class="back-link">&#8592; Back to {{ patient.name }}</a>
+<div class="card" style="max-width:480px;margin:2rem auto">
+  <h2>Delete Visit</h2>
+  <p>Delete the visit on <strong>{{ visit.date }}</strong> for <strong>{{ visit.chief_complaint }}</strong>? This cannot be undone.</p>
+  <div class="modal-actions">
+    <form method="POST" action="/patients/{{ patient.id }}/visits/{{ visit.id }}/delete" style="display:inline">
+      <button type="submit" class="btn btn-danger">Confirm Delete</button>
+    </form>
+    <a href="/patients/{{ patient.id }}" class="btn btn-secondary">Cancel</a>
+  </div>
+</div>
+{% endblock %}

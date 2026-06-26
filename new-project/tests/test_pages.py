@@ -187,3 +187,93 @@ def test_patient_delete_soft_deletes_and_redirects(admin_client: TestClient, ses
     assert resp.headers["location"] == "/patients"
     session.refresh(p)
     assert p.deleted_at is not None
+
+
+# ── Visit Pages ───────────────────────────────────────────────────────────────
+
+def test_visit_new_requires_admin(client: TestClient, session: Session):
+    import models
+    from datetime import date
+    p = models.Patient(name="Joe", date_of_birth=date(1990, 1, 1), gender="male")
+    session.add(p); session.commit()
+    resp = client.get(f"/patients/{p.id}/visits/new", follow_redirects=False)
+    assert resp.status_code == 303
+    assert "/login" in resp.headers["location"]
+
+
+def test_visit_new_renders_for_admin(admin_client: TestClient, session: Session):
+    import models
+    from datetime import date
+    p = models.Patient(name="Kim", date_of_birth=date(1990, 1, 1), gender="female")
+    session.add(p); session.commit()
+    resp = admin_client.get(f"/patients/{p.id}/visits/new", follow_redirects=False)
+    assert resp.status_code == 200
+    assert b"Add Visit" in resp.content
+
+
+def test_visit_create_redirects_to_detail(admin_client: TestClient, session: Session):
+    import models
+    from datetime import date
+    p = models.Patient(name="Leo", date_of_birth=date(1985, 5, 5), gender="male")
+    session.add(p); session.commit()
+    resp = admin_client.post(
+        f"/patients/{p.id}/visits",
+        data={"date": "2024-01-15", "chief_complaint": "Fever", "diagnosis": "", "notes": ""},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    assert resp.headers["location"] == f"/patients/{p.id}"
+
+
+def test_visit_edit_renders(admin_client: TestClient, session: Session):
+    import models
+    from datetime import date
+    p = models.Patient(name="Mia", date_of_birth=date(1990, 1, 1), gender="female")
+    session.add(p); session.commit()
+    v = models.Visit(patient_id=p.id, date=date(2024, 2, 2), chief_complaint="Cough")
+    session.add(v); session.commit()
+    resp = admin_client.get(f"/patients/{p.id}/visits/{v.id}/edit", follow_redirects=False)
+    assert resp.status_code == 200
+    assert b"Cough" in resp.content
+
+
+def test_visit_update_redirects_to_detail(admin_client: TestClient, session: Session):
+    import models
+    from datetime import date
+    p = models.Patient(name="Ned", date_of_birth=date(1980, 1, 1), gender="male")
+    session.add(p); session.commit()
+    v = models.Visit(patient_id=p.id, date=date(2024, 3, 3), chief_complaint="Back pain")
+    session.add(v); session.commit()
+    resp = admin_client.post(
+        f"/patients/{p.id}/visits/{v.id}",
+        data={"date": "2024-03-03", "chief_complaint": "Back pain updated", "diagnosis": "", "notes": ""},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    assert resp.headers["location"] == f"/patients/{p.id}"
+
+
+def test_visit_confirm_delete_renders(admin_client: TestClient, session: Session):
+    import models
+    from datetime import date
+    p = models.Patient(name="Ora", date_of_birth=date(1975, 1, 1), gender="female")
+    session.add(p); session.commit()
+    v = models.Visit(patient_id=p.id, date=date(2024, 4, 4), chief_complaint="Dizziness")
+    session.add(v); session.commit()
+    resp = admin_client.get(f"/patients/{p.id}/visits/{v.id}/confirm-delete", follow_redirects=False)
+    assert resp.status_code == 200
+    assert b"Dizziness" in resp.content
+
+
+def test_visit_delete_removes_and_redirects(admin_client: TestClient, session: Session):
+    import models
+    from datetime import date
+    p = models.Patient(name="Pat", date_of_birth=date(1978, 1, 1), gender="male")
+    session.add(p); session.commit()
+    v = models.Visit(patient_id=p.id, date=date(2024, 5, 5), chief_complaint="Nausea")
+    session.add(v); session.commit()
+    resp = admin_client.post(f"/patients/{p.id}/visits/{v.id}/delete", follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == f"/patients/{p.id}"
+    deleted = session.get(models.Visit, v.id)
+    assert deleted is None

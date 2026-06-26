@@ -173,6 +173,118 @@ def patient_update(
     return RedirectResponse(f"/patients/{patient_id}", status_code=303)
 
 
+@router.get("/patients/{patient_id}/visits/new")
+def visit_new_form(patient_id: int, request: Request, session: Session = Depends(get_session)):
+    if not _is_admin(request):
+        return RedirectResponse(f"/login?next=/patients/{patient_id}/visits/new", status_code=303)
+    patient = session.get(Patient, patient_id)
+    if not patient or patient.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    return templates.TemplateResponse(request, "visits/new.html", {
+        "is_admin": True, "patient": patient,
+    })
+
+
+@router.post("/patients/{patient_id}/visits")
+def visit_create(
+    patient_id: int,
+    request: Request,
+    date: str = Form(...),
+    chief_complaint: str = Form(...),
+    diagnosis: str = Form(""),
+    notes: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    if not _is_admin(request):
+        return RedirectResponse("/login", status_code=303)
+    patient = session.get(Patient, patient_id)
+    if not patient or patient.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    visit = Visit(
+        patient_id=patient_id,
+        date=date_type.fromisoformat(date),
+        chief_complaint=chief_complaint.strip(),
+        diagnosis=diagnosis.strip() or None,
+        notes=notes.strip() or None,
+    )
+    session.add(visit)
+    session.commit()
+    return RedirectResponse(f"/patients/{patient_id}", status_code=303)
+
+
+@router.get("/patients/{patient_id}/visits/{visit_id}/edit")
+def visit_edit_form(patient_id: int, visit_id: int, request: Request, session: Session = Depends(get_session)):
+    if not _is_admin(request):
+        return RedirectResponse(f"/login?next=/patients/{patient_id}/visits/{visit_id}/edit", status_code=303)
+    patient = session.get(Patient, patient_id)
+    if not patient or patient.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    visit = session.get(Visit, visit_id)
+    if not visit or visit.patient_id != patient_id:
+        raise HTTPException(status_code=404, detail="Visit not found")
+    return templates.TemplateResponse(request, "visits/edit.html", {
+        "is_admin": True, "patient": patient, "visit": visit,
+    })
+
+
+@router.post("/patients/{patient_id}/visits/{visit_id}")
+def visit_update(
+    patient_id: int,
+    visit_id: int,
+    request: Request,
+    date: str = Form(...),
+    chief_complaint: str = Form(...),
+    diagnosis: str = Form(""),
+    notes: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    if not _is_admin(request):
+        return RedirectResponse("/login", status_code=303)
+    patient = session.get(Patient, patient_id)
+    if not patient or patient.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    visit = session.get(Visit, visit_id)
+    if not visit or visit.patient_id != patient_id:
+        raise HTTPException(status_code=404, detail="Visit not found")
+    visit.date = date_type.fromisoformat(date)
+    visit.chief_complaint = chief_complaint.strip()
+    visit.diagnosis = diagnosis.strip() or None
+    visit.notes = notes.strip() or None
+    session.add(visit)
+    session.commit()
+    return RedirectResponse(f"/patients/{patient_id}", status_code=303)
+
+
+@router.get("/patients/{patient_id}/visits/{visit_id}/confirm-delete")
+def visit_confirm_delete(patient_id: int, visit_id: int, request: Request, session: Session = Depends(get_session)):
+    if not _is_admin(request):
+        return RedirectResponse(f"/login?next=/patients/{patient_id}/visits/{visit_id}/confirm-delete", status_code=303)
+    patient = session.get(Patient, patient_id)
+    if not patient or patient.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    visit = session.get(Visit, visit_id)
+    if not visit or visit.patient_id != patient_id:
+        raise HTTPException(status_code=404, detail="Visit not found")
+    return templates.TemplateResponse(request, "visits/confirm_delete.html", {
+        "is_admin": True, "patient": patient, "visit": visit,
+    })
+
+
+@router.post("/patients/{patient_id}/visits/{visit_id}/delete")
+def visit_delete(patient_id: int, visit_id: int, request: Request, session: Session = Depends(get_session)):
+    if not _is_admin(request):
+        return RedirectResponse("/login", status_code=303)
+    patient = session.get(Patient, patient_id)
+    if not patient or patient.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    visit = session.get(Visit, visit_id)
+    if not visit or visit.patient_id != patient_id:
+        raise HTTPException(status_code=404, detail="Visit not found")
+    session.delete(visit)
+    session.commit()
+    return RedirectResponse(f"/patients/{patient_id}", status_code=303)
+
+
 @router.get("/patients/{patient_id}")
 def patient_detail(patient_id: int, request: Request, session: Session = Depends(get_session)):
     patient = session.get(Patient, patient_id)
