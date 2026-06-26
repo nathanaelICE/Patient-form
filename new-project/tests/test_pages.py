@@ -277,3 +277,54 @@ def test_visit_delete_removes_and_redirects(admin_client: TestClient, session: S
     assert resp.headers["location"] == f"/patients/{p.id}"
     deleted = session.get(models.Visit, v.id)
     assert deleted is None
+
+
+def test_visit_create_requires_admin(client: TestClient, session: Session):
+    import models
+    from datetime import date
+    p = models.Patient(name="Qui", date_of_birth=date(1990, 1, 1), gender="female")
+    session.add(p); session.commit()
+    resp = client.post(
+        f"/patients/{p.id}/visits",
+        data={"date": "2024-01-01", "chief_complaint": "Test", "diagnosis": "", "notes": ""},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    assert "/login" in resp.headers["location"]
+
+
+def test_visit_update_requires_admin(client: TestClient, session: Session):
+    import models
+    from datetime import date
+    p = models.Patient(name="Rex", date_of_birth=date(1990, 1, 1), gender="male")
+    session.add(p); session.commit()
+    v = models.Visit(patient_id=p.id, date=date(2024, 1, 1), chief_complaint="Cough")
+    session.add(v); session.commit()
+    resp = client.post(
+        f"/patients/{p.id}/visits/{v.id}",
+        data={"date": "2024-01-01", "chief_complaint": "Updated", "diagnosis": "", "notes": ""},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    assert "/login" in resp.headers["location"]
+
+
+def test_visit_delete_requires_admin(client: TestClient, session: Session):
+    import models
+    from datetime import date
+    p = models.Patient(name="Sam", date_of_birth=date(1990, 1, 1), gender="female")
+    session.add(p); session.commit()
+    v = models.Visit(patient_id=p.id, date=date(2024, 1, 1), chief_complaint="Fever")
+    session.add(v); session.commit()
+    resp = client.post(f"/patients/{p.id}/visits/{v.id}/delete", follow_redirects=False)
+    assert resp.status_code == 303
+    assert "/login" in resp.headers["location"]
+
+
+def test_patient_detail_soft_deleted_returns_404(client: TestClient, session: Session):
+    import models
+    from datetime import date, datetime
+    p = models.Patient(name="Tia", date_of_birth=date(1990, 1, 1), gender="female", deleted_at=datetime.utcnow())
+    session.add(p); session.commit()
+    resp = client.get(f"/patients/{p.id}", follow_redirects=False)
+    assert resp.status_code == 404

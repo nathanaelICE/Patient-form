@@ -1,3 +1,8 @@
+import os
+
+# Disable secure cookie flag so TestClient (HTTP) can send session cookies
+os.environ["COOKIE_SECURE"] = "0"
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import SQLModel, Session, create_engine

@@ -1,3 +1,4 @@
+import os
 from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlmodel import Session, select
@@ -6,6 +7,8 @@ from passlib.context import CryptContext
 from database import get_session
 from models import AdminUser
 from schemas import LoginRequest, MeResponse
+
+COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "1") != "0"
 
 router = APIRouter(prefix="/api", tags=["auth"])
 
@@ -19,7 +22,7 @@ def login(body: LoginRequest, request: Request, response: Response, session: Ses
         raise HTTPException(status_code=401, detail="Invalid credentials")
     session_id = str(uuid4())
     request.app.state.sessions[session_id] = admin.id
-    response.set_cookie(key="session_id", value=session_id, httponly=True, samesite="strict")
+    response.set_cookie(key="session_id", value=session_id, httponly=True, samesite="strict", secure=COOKIE_SECURE)
     return {"ok": True}
 
 

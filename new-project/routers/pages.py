@@ -1,5 +1,6 @@
+import os
 from uuid import uuid4
-from urllib.parse import urlparse
+from urllib.parse import urlparse, quote
 from datetime import date as date_type, datetime
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -10,6 +11,8 @@ from sqlmodel import Session, select
 
 from database import get_session
 from models import AdminUser, Patient, Visit
+
+COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "1") != "0"
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -22,8 +25,11 @@ def _is_admin(request: Request) -> bool:
 
 
 def _safe_next(url: str) -> str:
-    """Reject absolute URLs to prevent open redirect."""
-    return url if not urlparse(url).netloc else "/patients"
+    """Reject absolute URLs and non-relative paths to prevent open redirect."""
+    parsed = urlparse(url)
+    if parsed.scheme or parsed.netloc or not url.startswith("/"):
+        return "/patients"
+    return url
 
 
 @router.get("/login")
@@ -45,11 +51,11 @@ def login_post(
 ):
     admin = session.exec(select(AdminUser).where(AdminUser.username == username)).first()
     if not admin or not _pwd.verify(password, admin.hashed_password):
-        return RedirectResponse(f"/login?error=1&next={next}", status_code=303)
+        return RedirectResponse(f"/login?error=1&next={quote(next, safe='')}", status_code=303)
     sid = str(uuid4())
     request.app.state.sessions[sid] = admin.id
     resp = RedirectResponse(_safe_next(next), status_code=303)
-    resp.set_cookie("session_id", sid, httponly=True, samesite="strict")
+    resp.set_cookie("session_id", sid, httponly=True, samesite="strict", secure=COOKIE_SECURE)
     return resp
 
 
