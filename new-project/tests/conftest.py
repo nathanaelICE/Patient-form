@@ -36,6 +36,7 @@ def client_fixture(session: Session):
 @pytest.fixture(name="admin_client")
 def admin_client_fixture(session: Session):
     app.dependency_overrides[get_session] = lambda: session
+    app.state.sessions = {}
     admin = models.AdminUser(
         username="testadmin",
         hashed_password=_pwd_context.hash("testpass"),
@@ -47,3 +48,5 @@ def admin_client_fixture(session: Session):
     resp = ac.post("/api/login", json={"username": "testadmin", "password": "testpass"})
     assert resp.status_code == 200
     yield ac
+    app.dependency_overrides.clear()
+    app.state.sessions = {}
