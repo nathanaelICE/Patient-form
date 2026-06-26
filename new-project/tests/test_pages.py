@@ -57,3 +57,42 @@ def test_patients_list_shows_patient(client: TestClient, session: Session):
     resp = client.get("/patients", follow_redirects=False)
     assert resp.status_code == 200
     assert b"Alice" in resp.content
+
+
+# ── Patient Register ─────────────────────────────────────────────────────────
+
+def test_patients_new_requires_admin(client: TestClient):
+    resp = client.get("/patients/new", follow_redirects=False)
+    assert resp.status_code == 303
+    assert "/login" in resp.headers["location"]
+
+
+def test_patients_new_renders_for_admin(admin_client: TestClient):
+    resp = admin_client.get("/patients/new", follow_redirects=False)
+    assert resp.status_code == 200
+    assert b"Register Patient" in resp.content
+
+
+def test_patients_create_redirects_to_list(admin_client: TestClient):
+    resp = admin_client.post(
+        "/patients",
+        data={
+            "name": "Bob",
+            "date_of_birth": "1985-03-15",
+            "gender": "male",
+            "phone": "",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/patients"
+
+
+def test_patients_create_requires_admin(client: TestClient):
+    resp = client.post(
+        "/patients",
+        data={"name": "Bob", "date_of_birth": "1985-03-15", "gender": "male", "phone": ""},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    assert "/login" in resp.headers["location"]

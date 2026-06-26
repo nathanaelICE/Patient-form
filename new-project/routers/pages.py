@@ -81,8 +81,32 @@ def patients_list(request: Request, session: Session = Depends(get_session)):
 
 
 @router.get("/patients/new")
-def patient_new_page(request: Request):
-    """Stub for Task 4 — register patient form."""
+def patients_new_form(request: Request):
+    if not _is_admin(request):
+        return RedirectResponse("/login?next=/patients/new", status_code=303)
     return templates.TemplateResponse(request, "patients/new.html", {
-        "is_admin": _is_admin(request),
+        "request": request,
+        "is_admin": True,
     })
+
+
+@router.post("/patients")
+def patients_create(
+    request: Request,
+    name: str = Form(...),
+    date_of_birth: str = Form(...),
+    gender: str = Form(...),
+    phone: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    if not _is_admin(request):
+        return RedirectResponse("/login?next=/patients/new", status_code=303)
+    patient = Patient(
+        name=name.strip(),
+        date_of_birth=date_type.fromisoformat(date_of_birth),
+        gender=gender.strip().lower(),
+        phone=phone.strip() or None,
+    )
+    session.add(patient)
+    session.commit()
+    return RedirectResponse("/patients", status_code=303)
