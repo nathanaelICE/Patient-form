@@ -96,3 +96,36 @@ def test_patients_create_requires_admin(client: TestClient):
     )
     assert resp.status_code == 303
     assert "/login" in resp.headers["location"]
+
+
+# ── Patient Detail ───────────────────────────────────────────────────────────
+
+def test_patient_detail_renders(client: TestClient, session: Session):
+    import models
+    from datetime import date
+    p = models.Patient(name="Carol", date_of_birth=date(1975, 6, 20), gender="female", phone="0812345")
+    session.add(p)
+    session.commit()
+    resp = client.get(f"/patients/{p.id}", follow_redirects=False)
+    assert resp.status_code == 200
+    assert b"Carol" in resp.content
+    assert b"No visits recorded yet" in resp.content
+
+
+def test_patient_detail_shows_visits(client: TestClient, session: Session):
+    import models
+    from datetime import date
+    p = models.Patient(name="Dan", date_of_birth=date(1980, 1, 1), gender="male")
+    session.add(p)
+    session.commit()
+    v = models.Visit(patient_id=p.id, date=date(2024, 3, 10), chief_complaint="Headache")
+    session.add(v)
+    session.commit()
+    resp = client.get(f"/patients/{p.id}", follow_redirects=False)
+    assert resp.status_code == 200
+    assert b"Headache" in resp.content
+
+
+def test_patient_detail_404(client: TestClient):
+    resp = client.get("/patients/99999", follow_redirects=False)
+    assert resp.status_code == 404

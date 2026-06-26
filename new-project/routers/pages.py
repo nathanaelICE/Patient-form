@@ -2,7 +2,7 @@ from uuid import uuid4
 from urllib.parse import urlparse
 from datetime import date as date_type, datetime
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from passlib.context import CryptContext
@@ -110,3 +110,18 @@ def patients_create(
     session.add(patient)
     session.commit()
     return RedirectResponse("/patients", status_code=303)
+
+
+@router.get("/patients/{patient_id}")
+def patient_detail(patient_id: int, request: Request, session: Session = Depends(get_session)):
+    patient = session.get(Patient, patient_id)
+    if not patient or patient.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    visits = session.exec(
+        select(Visit).where(Visit.patient_id == patient_id).order_by(Visit.date.desc())
+    ).all()
+    return templates.TemplateResponse(request, "patients/detail.html", {
+        "is_admin": _is_admin(request),
+        "patient": patient,
+        "visits": visits,
+    })
