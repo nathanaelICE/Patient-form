@@ -13,12 +13,13 @@ export default function PatientNewPage() {
 
   return (
     <section>
-      <h1>Register patient</h1>
       <ErrorBanner error={error} />
       <PatientForm
+        title="Register Patient"
         submitLabel="Create"
         pending={create.isPending}
         fieldErrors={fieldErrors}
+        cancelTo="/patients"
         onSubmit={async (data) => {
           setFieldErrors({}); setError(null)
           try {

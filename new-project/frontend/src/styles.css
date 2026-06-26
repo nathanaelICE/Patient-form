@@ -377,3 +377,81 @@ a:focus {
     flex: 1;
   }
 }
+
+/* ── Header right cluster (admin badge + auth button) ──────────────────────── */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.admin-badge {
+  background-color: #bee3f8;
+  color: #1a365d;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+/* ── Ghost button (header Login/Logout) ────────────────────────────────────── */
+.btn-ghost {
+  background: transparent;
+  color: #bee3f8;
+  border-color: #bee3f8;
+}
+
+.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-color: #fff;
+}
+
+/* ── Icon button (edit / delete in table rows) ─────────────────────────────── */
+.btn-icon {
+  padding: 0.25rem 0.45rem;
+  font-size: 0.8rem;
+  border-radius: 5px;
+  line-height: 1;
+  min-width: 28px;
+  min-height: 28px;
+}
+
+/* ── Danger button (delete confirmation) ───────────────────────────────────── */
+.btn-danger {
+  background-color: #e53e3e;
+  color: #fff;
+  border-color: #e53e3e;
+}
+
+.btn-danger:hover {
+  background-color: #c53030;
+  border-color: #c53030;
+}
+
+/* ── Actions column in tables ──────────────────────────────────────────────── */
+.actions-cell {
+  white-space: nowrap;
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+/* ── Inline form / field error ─────────────────────────────────────────────── */
+.form-error {
+  color: #e53e3e;
+  font-size: 0.82rem;
+  margin-top: 0.25rem;
+}
+
+/* ── Centered narrow card for forms & login ────────────────────────────────── */
+.form-card {
+  max-width: 480px;
+  margin: 2rem auto;
+}
+
+.login-card {
+  max-width: 400px;
+}

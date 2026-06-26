@@ -19,13 +19,14 @@ export default function PatientEditPage() {
 
   return (
     <section>
-      <h1>Edit {patient.name}</h1>
       <ErrorBanner error={error} />
       <PatientForm
+        title="Edit Patient"
         initial={patient}
-        submitLabel="Save"
+        submitLabel="Save Changes"
         pending={update.isPending}
         fieldErrors={fieldErrors}
+        cancelTo={`/patients/${patientId}`}
         onSubmit={async (data) => {
           setFieldErrors({}); setError(null)
           try {

@@ -6,20 +6,23 @@ export default function AppLayout() {
   const { isAdmin } = useAuth()
   const logout = useLogout()
   return (
-    <div className="app">
+    <>
       <header className="app-header">
-        <Link to="/patients" className="brand">Patient Registration</Link>
-        <nav>
+        <Link to="/patients" className="app-title">Patient Registration</Link>
+        <div className="header-right">
           {isAdmin ? (
-            <button onClick={() => logout.mutate()}>Log out</button>
+            <>
+              <span className="admin-badge">Admin</span>
+              <button className="btn btn-ghost" onClick={() => logout.mutate()}>Logout</button>
+            </>
           ) : (
-            <Link to="/login">Log in</Link>
+            <Link to="/login" className="btn btn-ghost">Login</Link>
           )}
-        </nav>
+        </div>
       </header>
-      <main className="app-main">
+      <main className="main-content">
         <Outlet />
       </main>
-    </div>
+    </>
   )
 }

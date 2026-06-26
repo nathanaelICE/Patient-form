@@ -21,13 +21,14 @@ export default function VisitEditPage() {
 
   return (
     <section>
-      <h1>Edit visit</h1>
       <ErrorBanner error={error} />
       <VisitForm
+        title="Edit Visit"
         initial={visit}
-        submitLabel="Save"
+        submitLabel="Save Changes"
         pending={update.isPending}
         fieldErrors={fieldErrors}
+        cancelTo={`/patients/${patientId}`}
         onSubmit={async (data) => {
           setFieldErrors({}); setError(null)
           try {

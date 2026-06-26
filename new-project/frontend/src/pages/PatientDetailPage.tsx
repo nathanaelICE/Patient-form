@@ -21,38 +21,60 @@ export default function PatientDetailPage() {
 
   return (
     <section>
-      <div className="page-head">
-        <h1>{patient.name}</h1>
-        {isAdmin && <Link className="button" to={`/patients/${patientId}/edit`}>Edit</Link>}
-      </div>
-      <dl className="details">
-        <dt>Gender</dt><dd>{patient.gender}</dd>
-        <dt>Date of birth</dt><dd>{patient.date_of_birth}</dd>
-        <dt>Phone</dt><dd>{patient.phone ?? '—'}</dd>
-      </dl>
+      <Link to="/patients" className="back-link">← Back to list</Link>
 
-      <div className="page-head">
-        <h2>Visits</h2>
-        {isAdmin && <Link className="button" to={`/patients/${patientId}/visits/new`}>Add visit</Link>}
-      </div>
-      <table className="data-table">
-        <thead><tr><th>Date</th><th>Chief complaint</th><th>Diagnosis</th>{isAdmin && <th></th>}</tr></thead>
-        <tbody>
-          {visits?.map((v) => (
-            <tr key={v.id}>
-              <td>{v.date}</td>
-              <td>{v.chief_complaint}</td>
-              <td>{v.diagnosis ?? '—'}</td>
-              {isAdmin && (
-                <td>
-                  <Link to={`/patients/${patientId}/visits/${v.id}/edit`}>Edit</Link>{' '}
-                  <button className="danger" onClick={() => setToDelete(v.id)}>Delete</button>
-                </td>
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <section className="card">
+        <div className="section-header">
+          <h2 className="section-title">Patient Information</h2>
+          {isAdmin && <Link className="btn btn-secondary" to={`/patients/${patientId}/edit`}>✎ Edit</Link>}
+        </div>
+        <dl className="info-grid">
+          <dt>Name</dt><dd>{patient.name}</dd>
+          <dt>Date of Birth</dt><dd>{patient.date_of_birth}</dd>
+          <dt>Gender</dt><dd>{patient.gender}</dd>
+          <dt>Phone</dt><dd>{patient.phone || <span className="placeholder">—</span>}</dd>
+        </dl>
+      </section>
+
+      <section className="card">
+        <div className="section-header">
+          <h2 className="section-title">Visit History</h2>
+          {isAdmin && <Link className="btn btn-primary" to={`/patients/${patientId}/visits/new`}>+ Add Visit</Link>}
+        </div>
+        <div className="table-wrapper">
+          {visits && visits.length > 0 ? (
+            <table className="visit-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Chief Complaint</th>
+                  <th>Diagnosis</th>
+                  <th>Notes</th>
+                  {isAdmin && <th>Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {visits.map((v) => (
+                  <tr key={v.id}>
+                    <td>{v.date}</td>
+                    <td>{v.chief_complaint}</td>
+                    <td>{v.diagnosis || '-'}</td>
+                    <td>{v.notes || '-'}</td>
+                    {isAdmin && (
+                      <td className="actions-cell">
+                        <Link to={`/patients/${patientId}/visits/${v.id}/edit`} className="btn btn-secondary btn-icon" title="Edit">✎</Link>
+                        <button className="btn btn-danger btn-icon" title="Delete" onClick={() => setToDelete(v.id)}>🗑</button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="empty-state">No visits recorded yet.</p>
+          )}
+        </div>
+      </section>
 
       <ConfirmDialog
         open={toDelete !== null}

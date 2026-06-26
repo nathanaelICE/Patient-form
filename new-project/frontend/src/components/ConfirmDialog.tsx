@@ -9,13 +9,13 @@ interface Props {
 export default function ConfirmDialog({ open, title, message, confirmLabel = 'Delete', onConfirm, onCancel }: Props) {
   if (!open) return null
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true">
-      <div className="modal card">
-        <h2>{title}</h2>
+    <div className="modal-overlay" role="dialog" aria-modal="true">
+      <div className="modal-dialog">
+        <h2 className="modal-title">{title}</h2>
         <p>{message}</p>
-        <div className="actions">
-          <button onClick={onCancel}>Cancel</button>
-          <button className="danger" onClick={onConfirm}>{confirmLabel}</button>
+        <div className="modal-actions">
+          <button className="btn btn-secondary" onClick={onCancel}>Cancel</button>
+          <button className="btn btn-danger" onClick={onConfirm}>{confirmLabel}</button>
         </div>
       </div>
     </div>

@@ -15,12 +15,13 @@ export default function VisitNewPage() {
 
   return (
     <section>
-      <h1>Add visit</h1>
       <ErrorBanner error={error} />
       <VisitForm
+        title="Add Visit"
         submitLabel="Create"
         pending={create.isPending}
         fieldErrors={fieldErrors}
+        cancelTo={`/patients/${patientId}`}
         onSubmit={async (data) => {
           setFieldErrors({}); setError(null)
           try {

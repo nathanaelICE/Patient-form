@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useLogin } from '../api/auth'
 import { ApiError } from '../api/client'
 
@@ -24,18 +24,21 @@ export default function LoginPage() {
   }
 
   return (
-    <form className="card" onSubmit={onSubmit}>
-      <h1>Log in</h1>
-      {error && <p className="error-banner">{error}</p>}
-      <label>
-        Username
-        <input value={username} onChange={(e) => setUsername(e.target.value)} />
-      </label>
-      <label>
-        Password
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-      </label>
-      <button type="submit" disabled={login.isPending}>Log in</button>
+    <form className="card form-card login-card" onSubmit={onSubmit}>
+      <h2>Admin Login</h2>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <div className="form-group">
+        <label htmlFor="username">Username <span className="required">*</span></label>
+        <input id="username" type="text" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} />
+      </div>
+      <div className="form-group">
+        <label htmlFor="password">Password <span className="required">*</span></label>
+        <input id="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+      </div>
+      <div className="modal-actions">
+        <button type="submit" className="btn btn-primary" disabled={login.isPending}>Log In as Admin</button>
+        <Link to="/patients" className="btn btn-secondary">Cancel</Link>
+      </div>
     </form>
   )
 }

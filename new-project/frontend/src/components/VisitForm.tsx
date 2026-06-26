@@ -1,15 +1,18 @@
 import { FormEvent, useState } from 'react'
+import { Link } from 'react-router-dom'
 import FormField from './FormField'
 import type { VisitCreate } from '../api/types'
 
 interface Props {
+  title: string
   initial?: Partial<VisitCreate>
   submitLabel: string
   pending: boolean
   fieldErrors: Record<string, string>
+  cancelTo: string
   onSubmit: (data: VisitCreate) => void
 }
-export default function VisitForm({ initial, submitLabel, pending, fieldErrors, onSubmit }: Props) {
+export default function VisitForm({ title, initial, submitLabel, pending, fieldErrors, cancelTo, onSubmit }: Props) {
   const [date, setDate] = useState(initial?.date ?? '')
   const [complaint, setComplaint] = useState(initial?.chief_complaint ?? '')
   const [diagnosis, setDiagnosis] = useState(initial?.diagnosis ?? '')
@@ -20,20 +23,24 @@ export default function VisitForm({ initial, submitLabel, pending, fieldErrors, 
     onSubmit({ date, chief_complaint: complaint, diagnosis: diagnosis || null, notes: notes || null })
   }
   return (
-    <form className="card" onSubmit={submit}>
-      <FormField label="Date" name="date" error={fieldErrors.date}>
+    <form className="card form-card" onSubmit={submit}>
+      <h2>{title}</h2>
+      <FormField label="Date" name="date" required error={fieldErrors.date}>
         <input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
       </FormField>
-      <FormField label="Chief complaint" name="chief_complaint" error={fieldErrors.chief_complaint}>
+      <FormField label="Chief Complaint" name="chief_complaint" required error={fieldErrors.chief_complaint}>
         <input id="chief_complaint" value={complaint} onChange={(e) => setComplaint(e.target.value)} />
       </FormField>
-      <FormField label="Diagnosis" name="diagnosis" error={fieldErrors.diagnosis}>
+      <FormField label="Diagnosis" name="diagnosis" optional error={fieldErrors.diagnosis}>
         <input id="diagnosis" value={diagnosis ?? ''} onChange={(e) => setDiagnosis(e.target.value)} />
       </FormField>
-      <FormField label="Notes" name="notes" error={fieldErrors.notes}>
+      <FormField label="Notes" name="notes" optional error={fieldErrors.notes}>
         <textarea id="notes" value={notes ?? ''} onChange={(e) => setNotes(e.target.value)} />
       </FormField>
-      <button type="submit" disabled={pending}>{submitLabel}</button>
+      <div className="modal-actions">
+        <button type="submit" className="btn btn-primary" disabled={pending}>{submitLabel}</button>
+        <Link to={cancelTo} className="btn btn-secondary">Cancel</Link>
+      </div>
     </form>
   )
 }
