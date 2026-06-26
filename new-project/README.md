@@ -1,6 +1,8 @@
 # Patient Registration
 
-FastAPI app for patient registration, backed by Neon (cloud Postgres).
+FastAPI app for patient registration, backed by Neon (cloud Postgres). The
+Docker image builds the React SPA (`frontend/`) and serves it alongside the
+JSON API, so the container exposes the full website on a single port.
 
 > This app lives in the `new-project/` subdirectory of the repository. All
 > Docker commands below are run from inside `new-project/`.
