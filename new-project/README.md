@@ -33,6 +33,15 @@ Then open http://localhost:8000.
 
 `.env` is gitignored and excluded from the image — never commit it.
 
+## Live deployment
+
+The app is deployed on Railway and reachable at:
+
+**https://patient-form-production.up.railway.app**
+
+It runs in the Singapore (`southeast-asia`) region, co-located with the Neon
+database, and redeploys automatically on every push to `master`.
+
 ## Deploy to Railway
 
 1. Push this repo to GitHub.
