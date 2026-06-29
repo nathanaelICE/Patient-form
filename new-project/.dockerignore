@@ -15,3 +15,5 @@ docs/
 # Frontend: build fresh inside the image, don't ship local copies
 frontend/node_modules/
 frontend/dist/
+compose*.yml
+Caddyfile
