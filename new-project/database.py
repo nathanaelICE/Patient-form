@@ -5,7 +5,10 @@ from passlib.context import CryptContext
 
 DATABASE_URL = os.environ["DATABASE_URL"]
 
-engine = create_engine(DATABASE_URL)
+# pool_pre_ping checks a pooled connection is still alive before use and
+# transparently reconnects — Neon drops idle connections, which otherwise
+# surfaces as "SSL connection has been closed unexpectedly" on the next request.
+engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_recycle=300)
 
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

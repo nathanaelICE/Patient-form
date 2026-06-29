@@ -21,10 +21,15 @@ def test_create_patient_without_phone(admin_client):
     assert response.json()["phone"] is None
 
 
-def test_list_patients_empty(client):
-    response = client.get("/api/patients")
+def test_list_patients_empty(admin_client):
+    response = admin_client.get("/api/patients")
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_list_patients_requires_auth(client):
+    response = client.get("/api/patients")
+    assert response.status_code == 401
 
 
 def test_list_patients_returns_all(admin_client):
@@ -55,9 +60,14 @@ def test_get_patient_by_id(admin_client):
     assert response.json()["name"] == "Budi Santoso"
 
 
-def test_get_patient_not_found(client):
-    response = client.get("/api/patients/9999")
+def test_get_patient_not_found(admin_client):
+    response = admin_client.get("/api/patients/9999")
     assert response.status_code == 404
+
+
+def test_get_patient_requires_auth(client):
+    response = client.get("/api/patients/1")
+    assert response.status_code == 401
 
 
 def test_update_patient(admin_client, session):

@@ -26,7 +26,7 @@ def create_visit(
 
 
 @router.get("/{patient_id}/visits", response_model=list[VisitRead])
-def list_visits(patient_id: int, session: Session = Depends(get_session)):
+def list_visits(patient_id: int, session: Session = Depends(get_session), _: AdminUser = Depends(get_admin)):
     patient = session.get(Patient, patient_id)
     if not patient or patient.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Patient not found")

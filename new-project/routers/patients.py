@@ -19,7 +19,7 @@ def create_patient(patient_in: PatientCreate, session: Session = Depends(get_ses
 
 
 @router.get("", response_model=list[PatientRead])
-def list_patients(session: Session = Depends(get_session)):
+def list_patients(session: Session = Depends(get_session), _: AdminUser = Depends(get_admin)):
     patients = session.exec(
         select(Patient).where(Patient.deleted_at == None).order_by(Patient.name)
     ).all()
@@ -27,7 +27,7 @@ def list_patients(session: Session = Depends(get_session)):
 
 
 @router.get("/{patient_id}", response_model=PatientRead)
-def get_patient(patient_id: int, session: Session = Depends(get_session)):
+def get_patient(patient_id: int, session: Session = Depends(get_session), _: AdminUser = Depends(get_admin)):
     patient = session.get(Patient, patient_id)
     if not patient or patient.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Patient not found")

@@ -15,9 +15,9 @@ export default function App() {
       <Route element={<AppLayout />}>
         <Route index element={<Navigate to="/patients" replace />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/patients" element={<PatientListPage />} />
-        <Route path="/patients/:id" element={<PatientDetailPage />} />
         <Route element={<ProtectedRoute />}>
+          <Route path="/patients" element={<PatientListPage />} />
+          <Route path="/patients/:id" element={<PatientDetailPage />} />
           <Route path="/patients/new" element={<PatientNewPage />} />
           <Route path="/patients/:id/edit" element={<PatientEditPage />} />
           <Route path="/patients/:id/visits/new" element={<VisitNewPage />} />

@@ -44,10 +44,15 @@ def test_create_visit_patient_not_found(admin_client):
     assert response.status_code == 404
 
 
-def test_list_visits_empty(client, patient):
-    response = client.get(f"/api/patients/{patient['id']}/visits")
+def test_list_visits_empty(admin_client, patient):
+    response = admin_client.get(f"/api/patients/{patient['id']}/visits")
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_list_visits_requires_auth(client, patient):
+    response = client.get(f"/api/patients/{patient['id']}/visits")
+    assert response.status_code == 401
 
 
 def test_list_visits_returns_all(admin_client, patient):
@@ -66,8 +71,8 @@ def test_list_visits_sorted_newest_first(admin_client, patient):
     assert dates == sorted(dates, reverse=True)
 
 
-def test_list_visits_patient_not_found(client):
-    response = client.get("/api/patients/9999/visits")
+def test_list_visits_patient_not_found(admin_client):
+    response = admin_client.get("/api/patients/9999/visits")
     assert response.status_code == 404
 
 
