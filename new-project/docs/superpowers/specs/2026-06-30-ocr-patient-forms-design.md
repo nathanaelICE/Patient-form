@@ -104,8 +104,8 @@ filled forms remain valid.
 |----------|---------|
 | `ANTHROPIC_API_KEY` | Auth for Claude vision. Without it, OCR is disabled. |
 
-Optional: `OCR_MODEL` to pin the vision model id. Default to a vision-capable
-Claude model balancing cost and accuracy for form reading — recommend
-`claude-sonnet-4-6` (all Claude 4.x models accept image input; Sonnet is the
-cost/accuracy sweet spot for OCR vs. Opus). The implementation plan should
-confirm the current model id against the `claude-api` skill before coding.
+Optional: `OCR_MODEL` to pin the vision model id. Default to `claude-opus-4-8`
+(the current most-capable model; per the `claude-api` skill, default to Opus
+unless a model is explicitly chosen). All Claude 4.x models accept image input,
+so `OCR_MODEL=claude-sonnet-4-6` is a valid lower-cost option for form reading
+if cost matters more than accuracy.
