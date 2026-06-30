@@ -1,3 +1,8 @@
 :80 {
-    reverse_proxy app:8000
+	# API and the (auth-gated) docs live on the backend.
+	@backend path /api/* /docs /redoc /openapi.json
+	reverse_proxy @backend backend:8000
+
+	# Everything else is the React SPA served by the frontend container.
+	reverse_proxy frontend:80
 }
