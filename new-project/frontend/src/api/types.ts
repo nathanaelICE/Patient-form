@@ -33,6 +33,41 @@ export interface VisitCreate {
 }
 export type VisitUpdate = Partial<VisitCreate>
 
+export type ClaimStatus = 'approved' | 'denied' | 'pending'
+export type ClaimType = 'inpatient' | 'outpatient' | 'emergency' | 'routine'
+export type ClaimMethod = 'online' | 'paper' | 'phone'
+
+export interface Claim {
+  id: number
+  patient_id: number
+  visit_id: number | null
+  claim_date: string
+  claim_amount: number
+  diagnosis_code: string | null
+  procedure_code: string | null
+  claim_status: ClaimStatus
+  claim_type: ClaimType
+  claim_submission_method: ClaimMethod
+  provider_id: string | null
+  provider_specialty: string | null
+  provider_location: string | null
+  created_at: string
+}
+export interface ClaimCreate {
+  claim_date: string
+  claim_amount: number
+  visit_id?: number | null
+  diagnosis_code?: string | null
+  procedure_code?: string | null
+  claim_status?: ClaimStatus
+  claim_type: ClaimType
+  claim_submission_method: ClaimMethod
+  provider_id?: string | null
+  provider_specialty?: string | null
+  provider_location?: string | null
+}
+export type ClaimUpdate = Partial<ClaimCreate>
+
 export interface Me {
   is_admin: boolean
 }
