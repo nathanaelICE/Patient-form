@@ -5,11 +5,12 @@ interface Props {
   error?: string
   required?: boolean
   optional?: boolean
+  className?: string
   children: ReactNode
 }
-export default function FormField({ label, name, error, required, optional, children }: Props) {
+export default function FormField({ label, name, error, required, optional, className, children }: Props) {
   return (
-    <div className="form-group">
+    <div className={`form-group${className ? ` ${className}` : ''}`}>
       <label htmlFor={name}>
         {label} {required && <span className="required">*</span>}
         {optional && <span className="optional">(optional)</span>}

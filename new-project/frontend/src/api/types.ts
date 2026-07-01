@@ -6,6 +6,15 @@ export interface Patient {
   date_of_birth: string // ISO date
   gender: Gender
   phone: string | null
+  national_id: string | null
+  place_of_birth: string | null
+  marital_status: string | null
+  occupation: string | null
+  religion: string | null
+  nationality: string | null
+  blood_type: string | null
+  allergies: string | null
+  known_conditions: string | null
   created_at: string
 }
 export interface PatientCreate {
@@ -13,6 +22,15 @@ export interface PatientCreate {
   date_of_birth: string
   gender: Gender
   phone?: string | null
+  national_id?: string | null
+  place_of_birth?: string | null
+  marital_status?: string | null
+  occupation?: string | null
+  religion?: string | null
+  nationality?: string | null
+  blood_type?: string | null
+  allergies?: string | null
+  known_conditions?: string | null
 }
 export type PatientUpdate = Partial<PatientCreate>
 
