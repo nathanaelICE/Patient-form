@@ -259,7 +259,7 @@ class ClaimCreate(BaseModel):
     @field_validator('claim_status')
     @classmethod
     def status_valid(cls, v):
-        return _validate_choice(v, VALID_CLAIM_STATUS, "claim status") or "pending"
+        return _validate_choice(v, VALID_CLAIM_STATUS, "claim status")
 
     @field_validator('claim_type')
     @classmethod
