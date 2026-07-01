@@ -14,7 +14,7 @@ _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def create_db_and_tables():
-    from models import Patient, Visit, AdminUser  # noqa: F401
+    from models import Patient, Visit, Claim, AdminUser  # noqa: F401
     SQLModel.metadata.create_all(engine)
 
 
