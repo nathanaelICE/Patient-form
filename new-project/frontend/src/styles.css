@@ -455,3 +455,9 @@ a:focus {
 .login-card {
   max-width: 400px;
 }
+
+.field-low-confidence input,
+.field-low-confidence select {
+  border-color: #e0a106;
+  background: #fff8e1;
+}
