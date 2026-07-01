@@ -6,7 +6,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
 from database import create_db_and_tables, seed_admin, engine
-from routers import patients, visits, auth as auth_router
+from routers import patients, visits, auth as auth_router, ocr as ocr_router
 from sqlmodel import Session
 
 # Hide the built-in docs endpoints so we can re-expose them behind auth below.
@@ -42,6 +42,7 @@ def on_startup():
 app.include_router(patients.router)
 app.include_router(visits.router)
 app.include_router(auth_router.router)
+app.include_router(ocr_router.router)
 
 
 # API docs, re-exposed behind HTTP Basic auth (admin credentials).
