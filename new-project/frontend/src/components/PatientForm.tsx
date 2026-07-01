@@ -103,7 +103,7 @@ export default function PatientForm({
       <FormField label="Blood Type" name="blood_type" optional error={fieldErrors.blood_type} className={lowConf('blood_type') ? 'field-low-confidence' : undefined}>
         <select id="blood_type" value={bloodType ?? ''} onChange={(e) => setBloodType(e.target.value)}>
           <option value="">—</option>
-          {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((b) => (
+          {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'A', 'B', 'AB', 'O'].map((b) => (
             <option key={b} value={b}>{b}</option>
           ))}
         </select>

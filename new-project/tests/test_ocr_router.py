@@ -1,4 +1,3 @@
-import io
 from unittest.mock import patch
 import routers.ocr as ocr_router
 
