@@ -2,9 +2,12 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { usePatient } from '../api/patients'
 import { useVisits, useDeleteVisit } from '../api/visits'
+import { useClaims, useCreateClaim, useDeleteClaim } from '../api/claims'
 import { useAuth } from '../auth/AuthContext'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ErrorBanner from '../components/ErrorBanner'
+import ClaimForm from '../components/ClaimForm'
+import { ApiError } from '../api/client'
 
 export default function PatientDetailPage() {
   const { id } = useParams()
@@ -12,8 +15,12 @@ export default function PatientDetailPage() {
   const { data: patient, isLoading, error } = usePatient(patientId)
   const { data: visits } = useVisits(patientId)
   const delVisit = useDeleteVisit(patientId)
+  const { data: claims } = useClaims(patientId)
+  const createClaim = useCreateClaim(patientId)
+  const deleteClaim = useDeleteClaim(patientId)
   const { isAdmin } = useAuth()
   const [toDelete, setToDelete] = useState<number | null>(null)
+  const [claimErrors, setClaimErrors] = useState<Record<string, string>>({})
 
   if (isLoading) return <p>Loading…</p>
   if (error) return <ErrorBanner error={error} />
@@ -74,6 +81,34 @@ export default function PatientDetailPage() {
             <p className="empty-state">No visits recorded yet.</p>
           )}
         </div>
+      </section>
+
+      <section className="card">
+        <div className="section-header">
+          <h2 className="section-title">Claims</h2>
+        </div>
+        <ul>
+          {claims?.map((c) => (
+            <li key={c.id}>
+              {c.claim_date} — {c.claim_type} — ${c.claim_amount} — {c.claim_status}
+              {isAdmin && (
+                <button onClick={() => deleteClaim.mutate(c.id)}>Delete</button>
+              )}
+            </li>
+          ))}
+        </ul>
+        <ClaimForm
+          pending={createClaim.isPending}
+          fieldErrors={claimErrors}
+          onSubmit={(body) => {
+            setClaimErrors({})
+            createClaim.mutate(body, {
+              onError: (err) => {
+                if (err instanceof ApiError) setClaimErrors(err.fieldErrors())
+              },
+            })
+          }}
+        />
       </section>
 
       <ConfirmDialog
