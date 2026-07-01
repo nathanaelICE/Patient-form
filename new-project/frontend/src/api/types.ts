@@ -6,6 +6,8 @@ export interface Patient {
   date_of_birth: string // ISO date
   gender: Gender
   phone: string | null
+  employment_status: 'employed' | 'unemployed' | 'retired' | 'student' | null
+  income: number | null
   created_at: string
 }
 export interface PatientCreate {
@@ -13,6 +15,8 @@ export interface PatientCreate {
   date_of_birth: string
   gender: Gender
   phone?: string | null
+  employment_status?: 'employed' | 'unemployed' | 'retired' | 'student' | null
+  income?: number | null
 }
 export type PatientUpdate = Partial<PatientCreate>
 

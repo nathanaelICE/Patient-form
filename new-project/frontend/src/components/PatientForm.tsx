@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import FormField from './FormField'
 import type { PatientCreate, Gender } from '../api/types'
 
+type EmploymentStatus = 'employed' | 'unemployed' | 'retired' | 'student'
+
 interface Props {
   title: string
   initial?: Partial<PatientCreate>
@@ -17,10 +19,19 @@ export default function PatientForm({ title, initial, submitLabel, pending, fiel
   const [dob, setDob] = useState(initial?.date_of_birth ?? '')
   const [gender, setGender] = useState<Gender>((initial?.gender as Gender) ?? 'male')
   const [phone, setPhone] = useState(initial?.phone ?? '')
+  const [employmentStatus, setEmploymentStatus] = useState<EmploymentStatus | ''>((initial?.employment_status as EmploymentStatus) ?? '')
+  const [income, setIncome] = useState(initial?.income ?? '')
 
   function submit(e: FormEvent) {
     e.preventDefault()
-    onSubmit({ name, date_of_birth: dob, gender, phone: phone || null })
+    onSubmit({
+      name,
+      date_of_birth: dob,
+      gender,
+      phone: phone || null,
+      employment_status: employmentStatus || null,
+      income: income === '' ? null : Number(income)
+    })
   }
   return (
     <form className="card form-card" onSubmit={submit}>
@@ -40,6 +51,18 @@ export default function PatientForm({ title, initial, submitLabel, pending, fiel
       </FormField>
       <FormField label="Phone" name="phone" optional error={fieldErrors.phone}>
         <input id="phone" value={phone ?? ''} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. 08123456789" />
+      </FormField>
+      <FormField label="Employment Status" name="employment_status" optional error={fieldErrors.employment_status}>
+        <select id="employment_status" value={employmentStatus} onChange={(e) => setEmploymentStatus(e.target.value as EmploymentStatus | '')}>
+          <option value="">-- Select employment status --</option>
+          <option value="employed">Employed</option>
+          <option value="unemployed">Unemployed</option>
+          <option value="retired">Retired</option>
+          <option value="student">Student</option>
+        </select>
+      </FormField>
+      <FormField label="Income" name="income" optional error={fieldErrors.income}>
+        <input id="income" type="number" min="0" value={income} onChange={(e) => setIncome(e.target.value)} placeholder="e.g. 5000000" />
       </FormField>
       <div className="modal-actions">
         <button type="submit" className="btn btn-primary" disabled={pending}>{submitLabel}</button>
