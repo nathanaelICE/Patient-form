@@ -35,14 +35,16 @@ Then open http://localhost:8000.
 
 `.env` is gitignored and excluded from the image — never commit it.
 
-## Live deployment
+## Deployment
 
-The app is deployed on Railway and reachable at:
+The `Dockerfile` builds a single self-contained image (SPA + API on one port),
+so the app can be deployed to any container host. Provide the environment
+variables above and expose the container's port.
 
-**https://patient-form-production.up.railway.app**
-
-It runs in the Singapore (`southeast-asia`) region, co-located with the Neon
-database, and redeploys automatically on every push to `master`.
+> **Railway (archived).** This app was previously deployed on Railway with
+> GitHub auto-deploy. That setup is no longer active. The full Railway config
+> and instructions are preserved in git at tag `railway-deploy-v1` — see
+> [Archived: Railway deployment](#archived-railway-deployment) below to restore.
 
 ## OCR form scanning
 
@@ -88,7 +90,12 @@ The claims feature added `employment_status` and `income` to `patient` (the
 cd new-project && psql "$DATABASE_URL" -f migrations/2026-07-01-add-claims.sql
 ```
 
-## Deploy to Railway
+## Archived: Railway deployment
+
+The app previously ran on Railway (project `lucid-manifestation`, Singapore
+region) with GitHub auto-deploy on every push to `master`. That deployment has
+been retired. The steps below are kept for reference if you want to bring it
+back; the exact repo state from when it was live is tagged `railway-deploy-v1`.
 
 1. Push this repo to GitHub.
 2. In Railway, create a new project from the GitHub repo.

@@ -89,8 +89,10 @@ guarding the authenticated pages (`AuthContext` tracks admin state via `GET /api
 
 ## Deployment — two separate paths
 
-- **Single-image (Railway):** root `Dockerfile` builds the SPA, then builds the Python image and
-  copies `dist` in; one container serves API + SPA on `$PORT`. This is the live deployment.
+- **Single-image:** root `Dockerfile` builds the SPA, then builds the Python image and
+  copies `dist` in; one container serves API + SPA on `$PORT`, deployable to any container host.
+  (This was previously deployed on Railway with GitHub auto-deploy; that setup is now archived —
+  see the README's "Archived: Railway deployment" and the `railway-deploy-v1` git tag.)
 - **Multi-container (local/self-host):** `compose.yml` runs separate `db`, `backend`
   (`backend.Dockerfile`), `frontend` (`frontend/Dockerfile`), `pgadmin`, `caddy`, and
   `cloudflared` (Quick Tunnel — the public URL changes on every restart). Driven by `.env`
