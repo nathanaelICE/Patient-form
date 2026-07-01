@@ -259,7 +259,10 @@ class ClaimCreate(BaseModel):
     @field_validator('claim_status')
     @classmethod
     def status_valid(cls, v):
-        return _validate_choice(v, VALID_CLAIM_STATUS, "claim status")
+        result = _validate_choice(v, VALID_CLAIM_STATUS, "claim status")
+        if result is None:
+            return "pending"
+        return result
 
     @field_validator('claim_type')
     @classmethod
@@ -324,17 +327,32 @@ class ClaimUpdate(BaseModel):
     @field_validator('claim_status')
     @classmethod
     def status_valid(cls, v):
-        return _validate_choice(v, VALID_CLAIM_STATUS, "claim status")
+        if v is None:
+            raise ValueError("claim status must not be blank")
+        result = _validate_choice(v, VALID_CLAIM_STATUS, "claim status")
+        if result is None:
+            raise ValueError("claim status must not be blank")
+        return result
 
     @field_validator('claim_type')
     @classmethod
     def type_valid(cls, v):
-        return _validate_choice(v, VALID_CLAIM_TYPE, "claim type")
+        if v is None:
+            raise ValueError("claim type must not be blank")
+        result = _validate_choice(v, VALID_CLAIM_TYPE, "claim type")
+        if result is None:
+            raise ValueError("claim type must not be blank")
+        return result
 
     @field_validator('claim_submission_method')
     @classmethod
     def method_valid(cls, v):
-        return _validate_choice(v, VALID_CLAIM_METHOD, "claim submission method")
+        if v is None:
+            raise ValueError("claim submission method must not be blank")
+        result = _validate_choice(v, VALID_CLAIM_METHOD, "claim submission method")
+        if result is None:
+            raise ValueError("claim submission method must not be blank")
+        return result
 
     @field_validator('diagnosis_code', 'procedure_code', 'provider_id',
                      'provider_specialty', 'provider_location')

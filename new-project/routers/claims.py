@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 from database import get_session
 from deps import get_admin
-from models import Patient, Claim, AdminUser
+from models import Patient, Claim, Visit, AdminUser
 from schemas import ClaimCreate, ClaimRead, ClaimUpdate
 
 router = APIRouter(prefix="/api/patients", tags=["claims"])
@@ -23,6 +23,10 @@ def create_claim(
     _: AdminUser = Depends(get_admin),
 ):
     _get_live_patient(session, patient_id)
+    if claim_in.visit_id is not None:
+        visit = session.get(Visit, claim_in.visit_id)
+        if not visit or visit.patient_id != patient_id:
+            raise HTTPException(status_code=400, detail="visit_id does not belong to this patient")
     claim = Claim(patient_id=patient_id, **claim_in.model_dump())
     session.add(claim)
     session.commit()
@@ -52,6 +56,10 @@ def update_claim(
     if not claim or claim.patient_id != patient_id:
         raise HTTPException(status_code=404, detail="Claim not found")
     data = claim_in.model_dump(exclude_unset=True)
+    if 'visit_id' in data and data['visit_id'] is not None:
+        visit = session.get(Visit, data['visit_id'])
+        if not visit or visit.patient_id != patient_id:
+            raise HTTPException(status_code=400, detail="visit_id does not belong to this patient")
     for field, value in data.items():
         setattr(claim, field, value)
     session.add(claim)

@@ -20,6 +20,8 @@ export default function PatientDetailPage() {
   const deleteClaim = useDeleteClaim(patientId)
   const { isAdmin } = useAuth()
   const [toDelete, setToDelete] = useState<number | null>(null)
+  const [claimToDelete, setClaimToDelete] = useState<number | null>(null)
+  const [claimFormKey, setClaimFormKey] = useState(0)
   const [claimErrors, setClaimErrors] = useState<Record<string, string>>({})
 
   if (isLoading) return <p>Loading…</p>
@@ -92,23 +94,27 @@ export default function PatientDetailPage() {
             <li key={c.id}>
               {c.claim_date} — {c.claim_type} — ${c.claim_amount} — {c.claim_status}
               {isAdmin && (
-                <button onClick={() => deleteClaim.mutate(c.id)}>Delete</button>
+                <button onClick={() => setClaimToDelete(c.id)}>Delete</button>
               )}
             </li>
           ))}
         </ul>
-        <ClaimForm
-          pending={createClaim.isPending}
-          fieldErrors={claimErrors}
-          onSubmit={(body) => {
-            setClaimErrors({})
-            createClaim.mutate(body, {
-              onError: (err) => {
-                if (err instanceof ApiError) setClaimErrors(err.fieldErrors())
-              },
-            })
-          }}
-        />
+        {isAdmin && (
+          <ClaimForm
+            key={claimFormKey}
+            pending={createClaim.isPending}
+            fieldErrors={claimErrors}
+            onSubmit={(body) => {
+              setClaimErrors({})
+              createClaim.mutate(body, {
+                onSuccess: () => setClaimFormKey(k => k + 1),
+                onError: (err) => {
+                  if (err instanceof ApiError) setClaimErrors(err.fieldErrors())
+                },
+              })
+            }}
+          />
+        )}
       </section>
 
       <ConfirmDialog
@@ -117,6 +123,13 @@ export default function PatientDetailPage() {
         message="Permanently delete this visit?"
         onCancel={() => setToDelete(null)}
         onConfirm={() => { if (toDelete !== null) delVisit.mutate(toDelete); setToDelete(null) }}
+      />
+      <ConfirmDialog
+        open={claimToDelete !== null}
+        title="Delete claim"
+        message="Delete this claim? This cannot be undone."
+        onCancel={() => setClaimToDelete(null)}
+        onConfirm={() => { if (claimToDelete !== null) deleteClaim.mutate(claimToDelete); setClaimToDelete(null) }}
       />
     </section>
   )
