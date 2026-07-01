@@ -2,19 +2,19 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Let an admin upload a photo of a paper patient form; Claude vision extracts the fields as JSON; the React form pre-fills them; staff review, correct, and save through the existing create flow.
+**Goal:** Let an admin upload a photo of a paper patient form; Gemini vision extracts the fields as JSON; the React form pre-fills them; staff review, correct, and save through the existing create flow.
 
-**Architecture:** A new `routers/ocr.py` endpoint accepts an image, calls a thin `ocr_service.py` wrapper around the Anthropic SDK (Claude vision + JSON-schema structured output), and returns `{fields, confidence}` without writing to the DB. The `Patient` model and Pydantic schemas gain nine new optional columns. The React `PatientForm` renders the new fields; `PatientNewPage` adds an "Upload form" button that calls the endpoint and pre-fills the form.
+**Architecture:** A new `routers/ocr.py` endpoint accepts an image, calls a thin `ocr_service.py` wrapper around the `google-genai` SDK (Gemini vision + JSON response mode), and returns `{fields, confidence}` without writing to the DB. The `Patient` model and Pydantic schemas gain nine new optional columns. The React `PatientForm` renders the new fields; `PatientNewPage` adds an "Upload form" button that calls the endpoint and pre-fills the form.
 
-**Tech Stack:** Python 3.12, FastAPI, SQLModel, Pydantic v2, `anthropic` SDK; React 18 + TypeScript, Vite, Vitest, @testing-library/react, TanStack Query; Postgres (Neon) in prod, SQLite in tests.
+**Tech Stack:** Python 3.12, FastAPI, SQLModel, Pydantic v2, `google-genai` SDK; React 18 + TypeScript, Vite, Vitest, @testing-library/react, TanStack Query; Postgres (Neon) in prod, SQLite in tests.
 
 ## Global Constraints
 
 - Backend tests run with `cd new-project && uv run pytest`. Frontend tests run with `cd new-project/frontend && npm test`.
 - All new API routes are prefixed `/api/...` and gated by `Depends(get_admin)`, matching `routers/patients.py`.
 - New `Patient` columns are **all nullable/optional** — existing rows and partial forms must stay valid.
-- The OCR service must read `ANTHROPIC_API_KEY` from the environment and be patchable in tests — **no real API calls in CI**.
-- Default vision model is `claude-opus-4-8`, overridable via the `OCR_MODEL` env var (per the `claude-api` skill: default to Opus unless a model is explicitly chosen).
+- The OCR service must read `GEMINI_API_KEY` from the environment and be patchable in tests — **no real API calls in CI**.
+- Default vision model is `gemini-2.5-flash` (chosen to cut cost vs. a frontier model while keeping strong handwriting/vision accuracy), overridable via the `OCR_MODEL` env var (e.g. `gemini-2.5-pro` for higher accuracy, `gemini-2.5-flash-lite` for lowest cost).
 - Tests use SQLite via the existing `tests/conftest.py` fixtures (`session`, `client`, `admin_client`); `SQLModel.metadata.create_all` creates the new columns automatically, so the Postgres migration script is **not** exercised by tests.
 - Follow existing code style: SQLModel `Field(...)`, Pydantic `field_validator`, FastAPI `APIRouter`. Match `schemas.py` validator patterns (strip blanks → `None`, enum-normalize to lowercase).
 
@@ -406,27 +406,27 @@ git commit -m "feat(patients): extend schemas with OCR fields and validators"
 
 ---
 
-### Task 3: Build the OCR service wrapper around the Anthropic SDK
+### Task 3: Build the OCR service wrapper around the `google-genai` SDK
 
 **Files:**
-- Modify: `new-project/pyproject.toml` (add `anthropic` dependency)
+- Modify: `new-project/pyproject.toml` (add `google-genai` dependency)
 - Create: `new-project/ocr_service.py`
 - Test: `new-project/tests/test_ocr_service.py`
 
 **Interfaces:**
 - Produces:
-  - `ocr_service.ocr_available() -> bool` — `True` iff `ANTHROPIC_API_KEY` is set and non-empty.
+  - `ocr_service.ocr_available() -> bool` — `True` iff `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) is set and non-empty.
   - `ocr_service.extract_patient_fields(image_bytes: bytes, media_type: str) -> dict` — returns `{"fields": {<field>: str|None}, "confidence": {<field>: float}}`. Raises `ocr_service.OCRError` on any SDK/parse failure.
   - `ocr_service.OCRError` — exception class.
   - `ocr_service.PATIENT_FIELDS: list[str]` — the field names the model is asked to fill.
-  - Internal `ocr_service._get_client()` returns an `anthropic.Anthropic()` — tests patch this.
+  - Internal `ocr_service._get_client()` returns a `genai.Client()` — tests patch this.
 
 - [ ] **Step 1: Add the dependency**
 
-In `new-project/pyproject.toml`, add `"anthropic>=0.49.0",` to the `dependencies` list (keep alphabetical-ish ordering; placing it first is fine). Then install:
+In `new-project/pyproject.toml`, add `"google-genai>=1.0.0",` to the `dependencies` list (keep alphabetical-ish ordering; placing it first is fine). Then install:
 
-Run: `cd new-project && (uv add anthropic 2>/dev/null || pip install "anthropic>=0.49.0")`
-Expected: `anthropic` installs into the active environment.
+Run: `cd new-project && (uv add google-genai 2>/dev/null || pip install "google-genai>=1.0.0")`
+Expected: `google-genai` installs into the active environment (import name: `from google import genai`).
 
 - [ ] **Step 2: Write the failing test**
 
@@ -440,19 +440,17 @@ import ocr_service
 
 
 def _fake_response(payload: dict):
-    """Build a fake Anthropic Message whose first content block is JSON text."""
-    block = MagicMock()
-    block.type = "text"
-    block.text = json.dumps(payload)
+    """Build a fake Gemini response whose `.text` is JSON."""
     resp = MagicMock()
-    resp.content = [block]
+    resp.text = json.dumps(payload)
     return resp
 
 
 def test_ocr_available_reflects_env(monkeypatch):
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     assert ocr_service.ocr_available() is True
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     assert ocr_service.ocr_available() is False
 
 
@@ -465,37 +463,33 @@ def test_extract_returns_fields_and_confidence():
     payload["confidence"]["name"] = 0.97
 
     fake_client = MagicMock()
-    fake_client.messages.create.return_value = _fake_response(payload)
+    fake_client.models.generate_content.return_value = _fake_response(payload)
 
     with patch.object(ocr_service, "_get_client", return_value=fake_client):
         result = ocr_service.extract_patient_fields(b"\xff\xd8fakejpeg", "image/jpeg")
 
     assert result["fields"]["name"] == "Budi Santoso"
     assert result["confidence"]["name"] == 0.97
-    # the image was sent as a base64 block
-    sent = fake_client.messages.create.call_args.kwargs
+    # the image was sent as an inline-data part with the right mime type
+    sent = fake_client.models.generate_content.call_args.kwargs
     assert sent["model"]  # a model id was passed
-    image_block = sent["messages"][0]["content"][0]
-    assert image_block["type"] == "image"
-    assert image_block["source"]["media_type"] == "image/jpeg"
+    image_part = sent["contents"][0]
+    assert image_part.inline_data.mime_type == "image/jpeg"
 
 
 def test_extract_raises_ocrerror_on_sdk_failure():
     fake_client = MagicMock()
-    fake_client.messages.create.side_effect = RuntimeError("boom")
+    fake_client.models.generate_content.side_effect = RuntimeError("boom")
     with patch.object(ocr_service, "_get_client", return_value=fake_client):
         with pytest.raises(ocr_service.OCRError):
             ocr_service.extract_patient_fields(b"x", "image/png")
 
 
 def test_extract_raises_ocrerror_on_bad_json():
-    block = MagicMock()
-    block.type = "text"
-    block.text = "this is not json"
     resp = MagicMock()
-    resp.content = [block]
+    resp.text = "this is not json"
     fake_client = MagicMock()
-    fake_client.messages.create.return_value = resp
+    fake_client.models.generate_content.return_value = resp
     with patch.object(ocr_service, "_get_client", return_value=fake_client):
         with pytest.raises(ocr_service.OCRError):
             ocr_service.extract_patient_fields(b"x", "image/png")
@@ -511,7 +505,7 @@ Expected: FAIL — `ModuleNotFoundError: No module named 'ocr_service'`.
 Create `new-project/ocr_service.py`:
 
 ```python
-"""Claude-vision wrapper that reads a patient-form image into structured fields.
+"""Gemini-vision wrapper that reads a patient-form image into structured fields.
 
 Does no database work. Returns a dict of extracted field values plus a per-field
 confidence score. Designed to be patched in tests (`_get_client`) so CI makes no
@@ -520,14 +514,13 @@ real API calls.
 import os
 import re
 import json
-import base64
-from typing import Optional
 
-import anthropic
+from google import genai
+from google.genai import types
 
-# Default to the most capable model; override with OCR_MODEL (e.g. claude-sonnet-4-6
-# for lower cost). Per the claude-api guidance, default to Opus unless explicitly changed.
-DEFAULT_MODEL = "claude-opus-4-8"
+# Default to a cheap, capable vision model; override with OCR_MODEL (e.g.
+# gemini-2.5-pro for higher accuracy, gemini-2.5-flash-lite for lowest cost).
+DEFAULT_MODEL = "gemini-2.5-flash"
 
 PATIENT_FIELDS = [
     "name", "date_of_birth", "gender", "phone",
@@ -557,11 +550,12 @@ class OCRError(Exception):
 
 
 def ocr_available() -> bool:
-    return bool(os.environ.get("ANTHROPIC_API_KEY"))
+    return bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
 
 
-def _get_client() -> anthropic.Anthropic:
-    return anthropic.Anthropic()
+def _get_client() -> "genai.Client":
+    # Reads GEMINI_API_KEY / GOOGLE_API_KEY from the environment.
+    return genai.Client()
 
 
 def _model() -> str:
@@ -569,45 +563,28 @@ def _model() -> str:
 
 
 def _extract_json(text: str) -> dict:
-    match = _JSON_RE.search(text)
+    match = _JSON_RE.search(text or "")
     if not match:
         raise OCRError("no JSON object found in model response")
     return json.loads(match.group(0))
 
 
-def _empty(value: dict) -> dict:
-    return {f: value for f in PATIENT_FIELDS}
-
-
 def extract_patient_fields(image_bytes: bytes, media_type: str) -> dict:
-    """Send the image to Claude vision and return {fields, confidence}."""
-    b64 = base64.standard_b64encode(image_bytes).decode("ascii")
+    """Send the image to Gemini vision and return {fields, confidence}."""
     try:
         client = _get_client()
-        response = client.messages.create(
+        response = client.models.generate_content(
             model=_model(),
-            max_tokens=2048,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": media_type,
-                                "data": b64,
-                            },
-                        },
-                        {"type": "text", "text": _PROMPT},
-                    ],
-                }
+            contents=[
+                types.Part.from_bytes(data=image_bytes, mime_type=media_type),
+                _PROMPT,
             ],
+            config=types.GenerateContentConfig(response_mime_type="application/json"),
         )
     except Exception as exc:  # SDK/network error
         raise OCRError(f"vision request failed: {exc}") from exc
 
-    text = next((b.text for b in response.content if getattr(b, "type", None) == "text"), None)
+    text = getattr(response, "text", None)
     if not text:
         raise OCRError("model returned no text content")
 
@@ -633,7 +610,7 @@ Expected: PASS (4 passed).
 
 ```bash
 git add new-project/pyproject.toml new-project/uv.lock new-project/ocr_service.py new-project/tests/test_ocr_service.py
-git commit -m "feat(ocr): add Claude-vision service that extracts patient fields from an image"
+git commit -m "feat(ocr): add Gemini-vision service that extracts patient fields from an image"
 ```
 
 ---
@@ -1358,13 +1335,13 @@ git commit -m "feat(frontend): add OCR upload to registration page with form pre
 
 **Interfaces:** none (docs only).
 
-- [ ] **Step 1: Add `ANTHROPIC_API_KEY` to the env var table**
+- [ ] **Step 1: Add `GEMINI_API_KEY` to the env var table**
 
 In `new-project/README.md`, add a row to the "Required environment variables" table:
 
 ```
-| `ANTHROPIC_API_KEY` | Enables OCR form-scanning (Claude vision). If unset, the OCR upload button is hidden and the form works manually. |
-| `OCR_MODEL` | Optional. Vision model id (default `claude-opus-4-8`; `claude-sonnet-4-6` is a lower-cost option). |
+| `GEMINI_API_KEY` | Enables OCR form-scanning (Gemini vision). If unset, the OCR upload button is hidden and the form works manually. |
+| `OCR_MODEL` | Optional. Vision model id (default `gemini-2.5-flash`; `gemini-2.5-pro` for higher accuracy, `gemini-2.5-flash-lite` for lowest cost). |
 ```
 
 - [ ] **Step 2: Add an OCR + migration section**
@@ -1375,8 +1352,8 @@ Append to `new-project/README.md`:
 ## OCR form scanning
 
 Admins can upload a photo/scan of a paper patient form on the registration
-page; Claude vision extracts the fields and pre-fills the form for review
-before saving. Set `ANTHROPIC_API_KEY` to enable it; without it the feature is
+page; Gemini vision extracts the fields and pre-fills the form for review
+before saving. Set `GEMINI_API_KEY` to enable it; without it the feature is
 hidden and registration works manually.
 
 ## Database migration (new patient columns)
@@ -1402,7 +1379,7 @@ git commit -m "docs: document OCR form scanning and the patient-columns migratio
 ## Self-Review
 
 **Spec coverage:**
-- Engine = Claude vision → Task 3 (`ocr_service.py`). ✅
+- Engine = Gemini vision → Task 3 (`ocr_service.py`). ✅
 - Nine new columns → Task 1 (model) + Task 2 (schemas) + Task 5 (TS types/form). ✅
 - Postgres migration (not `create_all`) → Task 1 Step 5. ✅
 - `POST /ocr/extract` admin-only, no DB write → Task 4. ✅
