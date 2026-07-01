@@ -30,6 +30,8 @@ Then open http://localhost:8000.
 | `DATABASE_URL` | Neon Postgres connection string |
 | `ADMIN_USERNAME` | Seeded admin username (default `admin`) |
 | `ADMIN_PASSWORD` | Seeded admin password |
+| `GEMINI_API_KEY` | Enables OCR form-scanning (Gemini vision). If unset, the OCR upload button is hidden and the form works manually. |
+| `OCR_MODEL` | Optional. Vision model id (default `gemini-2.5-flash`; `gemini-2.5-pro` for higher accuracy, `gemini-2.5-flash-lite` for lowest cost). |
 
 `.env` is gitignored and excluded from the image — never commit it.
 
@@ -41,6 +43,23 @@ The app is deployed on Railway and reachable at:
 
 It runs in the Singapore (`southeast-asia`) region, co-located with the Neon
 database, and redeploys automatically on every push to `master`.
+
+## OCR form scanning
+
+Admins can upload a photo/scan of a paper patient form on the registration
+page; Gemini vision extracts the fields and pre-fills the form for review
+before saving. Set `GEMINI_API_KEY` to enable it; without it the feature is
+hidden and registration works manually.
+
+## Database migration (new patient columns)
+
+The OCR feature adds optional columns to the `patient` table. `create_all` does
+not alter existing tables, so run this once against the live Postgres DB after
+deploying:
+
+```bash
+cd new-project && uv run python -m scripts.migrate_add_patient_fields
+```
 
 ## Deploy to Railway
 
