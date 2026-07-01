@@ -51,14 +51,41 @@ page; Gemini vision extracts the fields and pre-fills the form for review
 before saving. Set `GEMINI_API_KEY` to enable it; without it the feature is
 hidden and registration works manually.
 
-## Database migration (new patient columns)
+## Insurance claims
 
-The OCR feature adds optional columns to the `patient` table. `create_all` does
-not alter existing tables, so run this once against the live Postgres DB after
-deploying:
+Each patient has an insurance-claims section on their detail page. Admins can
+record, edit, and delete claims tied to a patient (and optionally to a specific
+visit). A claim captures the claim date and amount, optional diagnosis/procedure
+codes, provider details, and three validated fields:
+
+- **status** — `pending` (default), `approved`, or `denied`
+- **type** — `inpatient`, `outpatient`, `emergency`, or `routine`
+- **submission method** — `online`, `paper`, or `phone`
+
+Registration also collects the patient's **employment status** and **income**,
+which support downstream claim workflows.
+
+Claims are served under `/api/patients/{id}/claims` (GET/POST/PUT/DELETE) and,
+like every app endpoint, require an admin session. Unlike patients, claims are
+**hard-deleted** (no `deleted_at`).
+
+## Database migrations (new columns)
+
+`create_all` creates new tables (like `claim`) on startup but does **not** alter
+existing tables, so new columns on the existing `patient` table need a manual
+migration once against the live Postgres DB after deploying.
+
+The OCR feature added identity/medical columns:
 
 ```bash
 cd new-project && uv run python -m scripts.migrate_add_patient_fields
+```
+
+The claims feature added `employment_status` and `income` to `patient` (the
+`claim` table itself is auto-created). Apply the SQL once:
+
+```bash
+cd new-project && psql "$DATABASE_URL" -f migrations/2026-07-01-add-claims.sql
 ```
 
 ## Deploy to Railway

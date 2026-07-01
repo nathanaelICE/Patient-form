@@ -1,5 +1,10 @@
 # Patient Registration Harness — Progress Ledger
 
+> **ARCHIVED (2026-07-01).** This is a point-in-time build ledger for the original
+> patient/visit harness. It predates the React SPA migration (the frontend is no longer
+> `public/*.html`), the OCR form-scanning feature, and the insurance-claims feature.
+> Kept for history only — see `README.md` and `CLAUDE.md` for the current state.
+
 ## Status: Complete
 
 ## Tasks

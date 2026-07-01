@@ -35,10 +35,15 @@ npm run test:watch
 ## Architecture
 
 **Layering (backend).** Keep these roles separate when editing:
-- `models.py` — SQLModel `table=True` classes (DB schema only: `Patient`, `Visit`, `AdminUser`).
+- `models.py` — SQLModel `table=True` classes (DB schema only: `Patient`, `Visit`, `Claim`,
+  `AdminUser`).
 - `schemas.py` — Pydantic request/response models with all validation (`field_validator`s for
-  blank checks, gender enum, future-DOB, phone regex). Validation lives here, **not** in models.
-- `routers/` — endpoints grouped by resource (`patients`, `visits`, `auth`), each an `APIRouter`.
+  blank checks, gender enum, future-DOB, phone regex, and claim status/type/method enums).
+  Validation lives here, **not** in models.
+- `ocr_service.py` — Gemini-vision service that extracts patient fields from an uploaded image.
+- `routers/` — endpoints grouped by resource (`patients`, `visits`, `claims`, `ocr`, `auth`),
+  each an `APIRouter`. Claims are nested under `/api/patients/{id}/claims`; OCR exposes
+  admin-only `/api/ocr/extract` and `/api/ocr/status`.
 - `deps.py` — shared FastAPI dependencies (notably `get_admin`).
 - `database.py` — engine, session factory, table creation, admin seeding.
 - `main.py` — app assembly: registers routers, re-exposes docs behind auth, mounts the SPA.
@@ -46,7 +51,8 @@ npm run test:watch
 **Two distinct auth mechanisms — don't conflate them:**
 1. *App API* uses a cookie session. `POST /api/login` verifies the admin (bcrypt) and stores a
    uuid → admin-id mapping in `app.state.sessions` (an **in-memory dict**), setting an
-   httponly `session_id` cookie. `get_admin` (in `deps.py`) gates every patient/visit endpoint.
+   httponly `session_id` cookie. `get_admin` (in `deps.py`) gates every app endpoint
+   (patients, visits, claims, OCR).
    Because sessions live in memory, **all logins are dropped on restart**, and this won't work
    across multiple backend replicas.
 2. *API docs* (`/docs`, `/redoc`, `/openapi.json`) are disabled by default and re-exposed in
@@ -57,7 +63,10 @@ on startup and **overwrites** the stored admin to match `ADMIN_USERNAME`/`ADMIN_
 deploy, so changing those env vars rotates the password even on an already-seeded DB.
 
 **Patients are soft-deleted** (`deleted_at` timestamp). Every patient query must filter
-`deleted_at == None` — there's no hard delete. Visits are not soft-deleted.
+`deleted_at == None` — there's no hard delete. Visits and claims are not soft-deleted; claim
+endpoints hard-delete, and every claim operation first resolves the patient through
+`_get_live_patient` (404s on a soft-deleted patient) and validates that any `visit_id` belongs
+to that patient.
 
 **SPA serving.** `main.py` mounts `/assets` and adds a catch-all `/{full_path:path}` route that
 returns `index.html`, so client-side routes work on refresh. API routers are registered *before*
