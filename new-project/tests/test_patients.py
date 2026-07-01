@@ -117,3 +117,27 @@ def test_delete_patient_soft(admin_client):
 def test_delete_patient_requires_auth(client):
     resp = client.delete("/api/patients/1")
     assert resp.status_code == 401
+
+
+def test_create_patient_with_ocr_fields(admin_client):
+    response = admin_client.post("/api/patients", json={
+        "name": "Budi Santoso",
+        "date_of_birth": "1990-05-15",
+        "gender": "male",
+        "national_id": "3201234567890001",
+        "blood_type": "o+",
+        "marital_status": "Married",
+    })
+    assert response.status_code == 201
+    data = response.json()
+    assert data["national_id"] == "3201234567890001"
+    assert data["blood_type"] == "O+"
+    assert data["marital_status"] == "married"
+
+
+def test_create_patient_rejects_bad_national_id(admin_client):
+    response = admin_client.post("/api/patients", json={
+        "name": "X", "date_of_birth": "2000-01-01", "gender": "male",
+        "national_id": "not-16-digits",
+    })
+    assert response.status_code == 422
