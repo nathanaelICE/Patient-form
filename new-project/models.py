@@ -15,6 +15,15 @@ class Patient(SQLModel, table=True):
     date_of_birth: date
     gender: str
     phone: Optional[str] = None
+    national_id: Optional[str] = Field(default=None, index=True)
+    place_of_birth: Optional[str] = None
+    marital_status: Optional[str] = None
+    occupation: Optional[str] = None
+    religion: Optional[str] = None
+    nationality: Optional[str] = None
+    blood_type: Optional[str] = None
+    allergies: Optional[str] = None
+    known_conditions: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     deleted_at: Optional[datetime] = Field(default=None)
 
