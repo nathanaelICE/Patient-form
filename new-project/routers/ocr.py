@@ -62,7 +62,7 @@ async def create_jobs(
 
 @router.get("/jobs", response_model=List[OcrJobRead])
 def list_jobs(session: Session = Depends(get_session), _: AdminUser = Depends(get_admin)):
-    return session.exec(select(OcrJob).order_by(OcrJob.created_at)).all()
+    return session.exec(select(OcrJob).order_by(OcrJob.created_at, OcrJob.id)).all()
 
 
 @router.post("/jobs/{job_id}/retry", response_model=OcrJobRead)

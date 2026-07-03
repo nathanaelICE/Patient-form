@@ -90,9 +90,10 @@ async def on_shutdown():
     if stop is not None:
         stop.set()
     if worker is not None:
+        worker.cancel()
         try:
             await worker
-        except Exception:
+        except (Exception, asyncio.CancelledError):
             pass
 
 

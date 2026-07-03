@@ -6,10 +6,11 @@ function isActive(jobs: OcrJob[] | undefined): boolean {
   return !!jobs?.some((j) => j.status === 'pending' || j.status === 'processing')
 }
 
-export function useOcrJobs() {
+export function useOcrJobs(enabled = true) {
   return useQuery({
     queryKey: ['ocrJobs'],
     queryFn: () => apiFetch<OcrJob[]>('/api/ocr/jobs'),
+    enabled,
     refetchInterval: (query) => (isActive(query.state.data as OcrJob[] | undefined) ? 2000 : false),
   })
 }

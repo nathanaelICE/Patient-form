@@ -19,7 +19,7 @@ export default function PatientListPage() {
     if (isAdmin) getOcrStatus().then(setOcrAvailable).catch(() => setOcrAvailable(false))
   }, [isAdmin])
 
-  const jobs = useOcrJobs()
+  const jobs = useOcrJobs(isAdmin)
   const upload = useUploadOcrJobs()
   const retry = useRetryOcrJob()
   const dismiss = useDismissOcrJob()
@@ -91,7 +91,7 @@ export default function PatientListPage() {
                 )}
               </tr>
             ))}
-            {errored.map((j) => (
+            {isAdmin && errored.map((j) => (
               <tr key={`job-${j.id}`} className="ocr-row ocr-row-error">
                 <td><strong>ERROR</strong></td>
                 <td>{j.filename}</td>
