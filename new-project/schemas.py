@@ -173,6 +173,17 @@ class PatientRead(BaseModel):
     created_at: datetime
 
 
+class OcrJobRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    filename: str
+    status: str
+    error_message: Optional[str] = None
+    extracted_fields: Optional[dict] = None
+    created_at: datetime
+
+
 class PatientUpdate(BaseModel):
     name: Optional[str] = None
     date_of_birth: Optional[date] = None
