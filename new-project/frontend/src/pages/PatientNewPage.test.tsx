@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
@@ -26,6 +26,21 @@ function renderPage() {
 function jsonResponse(body: unknown, ok = true, status = 200) {
   return Promise.resolve({ ok, status, json: () => Promise.resolve(body) } as Response)
 }
+
+afterEach(() => { vi.restoreAllMocks() })
+
+it('prefills the form from router state', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ available: false }) } as Response))
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(
+    <QueryClientProvider client={qc}>
+      <MemoryRouter initialEntries={[{ pathname: '/patients/new', state: { prefill: { name: 'Budi Santoso' }, jobId: 5 } }]}>
+        <PatientNewPage />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+  await waitFor(() => expect((screen.getByLabelText(/name/i) as HTMLInputElement).value).toBe('Budi Santoso'))
+})
 
 describe('PatientNewPage OCR', () => {
   it('shows the upload control when OCR is available', async () => {
