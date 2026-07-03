@@ -609,7 +609,7 @@ git commit -m "feat: OCR job endpoints (batch upload, list, retry, dismiss)"
 
 **Interfaces:**
 - Consumes: `ocr_jobs.process_job`, `ocr_jobs.requeue_orphans`, `database.engine`, `database.create_db_and_tables`, `database.seed_admin`.
-- Produces: `async def _ocr_worker_loop(stop: asyncio.Event)` in `main.py` that, per tick, requeues nothing (requeue is startup-only) and processes all currently `pending` jobs via `anyio.to_thread.run_sync`, sleeping `POLL_SECONDS` between ticks. A module-level `POLL_SECONDS = 1.0`.
+- Produces: `async def _ocr_worker_loop(stop: asyncio.Event)` in `main.py` that, per tick, processes all currently `pending` jobs, sleeping `POLL_SECONDS` between ticks. A module-level `POLL_SECONDS = 1.0`. **Thread-safety:** each job is processed in its own worker-thread session (opened inside `_process_one`), never sharing a `Session` across the thread boundary — the pending-ID listing uses a separate short-lived session that is closed before any thread runs.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -623,7 +623,9 @@ import main
 
 
 def test_worker_tick_processes_pending(session, monkeypatch):
-    # _process_pending_once is called directly with the test session below.
+    # Both the listing session and each per-job session resolve to the test session
+    # (StaticPool in-memory DB), so the whole tick operates on one database.
+    monkeypatch.setattr(main, "_worker_session", lambda: session)
     monkeypatch.setattr(
         ocr_service, "extract_patient_fields",
         lambda img, mt: {"fields": {f: None for f in ocr_service.PATIENT_FIELDS} |
@@ -633,11 +635,13 @@ def test_worker_tick_processes_pending(session, monkeypatch):
     session.add(OcrJob(filename="a.png", media_type="image/png", image=b"x"))
     session.commit()
 
-    asyncio.run(main._process_pending_once(session))
+    asyncio.run(main._process_pending_once())
 
     assert session.exec(select(Patient)).all()[0].name == "Ana"
     assert session.exec(select(OcrJob)).all() == []
 ```
+
+> Note: `Session` is a context manager whose `__exit__` calls `close()`; on the StaticPool in-memory engine `close()` is harmless (data persists, the session is reusable), so returning the same test session from the patched `_worker_session` across the listing and per-job `with` blocks is safe.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -667,10 +671,20 @@ def _worker_session() -> Session:
     return Session(engine)
 
 
-async def _process_pending_once(session: Session) -> None:
-    job_ids = [j.id for j in session.exec(select(OcrJob).where(OcrJob.status == "pending")).all()]
+def _process_one(job_id: int) -> None:
+    # Runs in a worker thread. Opens its OWN session so no Session ever crosses
+    # the thread boundary (SQLAlchemy sessions are not thread-safe).
+    with _worker_session() as session:
+        ocr_jobs.process_job(session, job_id)
+
+
+async def _process_pending_once() -> None:
+    # List pending IDs with a short-lived session that is closed before any
+    # thread runs; then hand each ID to its own per-thread session.
+    with _worker_session() as session:
+        job_ids = [j.id for j in session.exec(select(OcrJob).where(OcrJob.status == "pending")).all()]
     for job_id in job_ids:
-        await anyio.to_thread.run_sync(ocr_jobs.process_job, session, job_id)
+        await anyio.to_thread.run_sync(_process_one, job_id)
 
 
 async def _ocr_worker_loop(stop: asyncio.Event) -> None:
@@ -678,8 +692,7 @@ async def _ocr_worker_loop(stop: asyncio.Event) -> None:
         ocr_jobs.requeue_orphans(session)
     while not stop.is_set():
         try:
-            with _worker_session() as session:
-                await _process_pending_once(session)
+            await _process_pending_once()
         except Exception:
             # Never let a transient DB/OCR error kill the loop.
             pass
@@ -883,6 +896,8 @@ git commit -m "feat: frontend OCR jobs api module and hooks"
 **Files:**
 - Modify: `frontend/src/pages/PatientListPage.tsx`
 - Modify: `frontend/src/pages/PatientListPage.test.tsx`
+
+**Column set:** the current `PatientListPage.tsx` shows exactly ID / Name / Gender / Phone / Date of Birth / Actions (verified against the live file). The rewrite below **intentionally preserves this same 5-column (+Actions) set** — it is not a reduction. Do not add the other `Patient` model fields (`national_id`, `occupation`, etc.); they were never in the list view.
 
 **Interfaces:**
 - Consumes: `useOcrJobs`, `useUploadOcrJobs`, `useRetryOcrJob`, `useDismissOcrJob` (Task 6); `getOcrStatus` from `../api/ocr`; existing `usePatients`, `useDeletePatient`, `useAuth`.
@@ -1094,7 +1109,7 @@ Add to `frontend/src/pages/PatientNewPage.test.tsx` (create the file if it lacks
 
 ```tsx
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import PatientNewPage from './PatientNewPage'
@@ -1114,8 +1129,6 @@ it('prefills the form from router state', async () => {
   await waitFor(() => expect((screen.getByLabelText(/name/i) as HTMLInputElement).value).toBe('Budi Santoso'))
 })
 ```
-
-(Import `render` from `@testing-library/react`.)
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -1185,7 +1198,8 @@ git commit -m "feat: manual-entry prefill and job dismissal from error rows"
 
 ## Notes for the implementer
 
-- **Why `process_job` is sync and session-injected:** the worker loop drives it through `anyio.to_thread.run_sync` with a per-tick `Session(engine)`, while tests call it directly with the in-memory session. Keep it synchronous.
+- **Why `process_job` is sync and session-injected:** the worker drives it through `anyio.to_thread.run_sync` inside `_process_one`, which opens its **own** `Session(engine)` in the worker thread; tests call `process_job` directly with the in-memory session. Keep it synchronous.
+- **Thread safety (do not "optimize"):** never pass one `Session` across the `anyio.to_thread` boundary or share a session between concurrent jobs — SQLAlchemy sessions are not thread-safe. `_process_pending_once` deliberately lists pending IDs with a short-lived session (closed before any thread runs) and gives each job its own session via `_process_one`. Processing is sequential per tick on purpose (YAGNI); if a future change makes it concurrent, the per-job-session boundary is what keeps it correct.
 - **Ordering rule:** processing/pending rows render before patients; error rows render after. This satisfies "processing rows appear as new rows" and "errored rows move toward the bottom."
 - **Do not** delete or alter `POST /api/ocr/extract` or `GET /api/ocr/status` — the single-form OCR path and the availability probe both still use them.
 - **Concurrency:** the worker processes pending jobs sequentially per tick. That's intentional and simplest; do not add a thread pool / semaphore unless a later requirement demands it (YAGNI).
