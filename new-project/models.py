@@ -1,6 +1,7 @@
 from datetime import date, datetime
-from typing import Optional
+from typing import Optional, Any
 from sqlmodel import SQLModel, Field
+from sqlalchemy import Column, JSON, LargeBinary
 
 
 class AdminUser(SQLModel, table=True):
@@ -55,3 +56,17 @@ class Claim(SQLModel, table=True):
     provider_specialty: Optional[str] = None
     provider_location: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class OcrJob(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    filename: str
+    media_type: str
+    image: bytes = Field(sa_column=Column(LargeBinary, nullable=False))
+    status: str = Field(default="pending")  # pending | processing | error
+    error_message: Optional[str] = None
+    extracted_fields: Optional[dict[str, Any]] = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)

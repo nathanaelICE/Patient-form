@@ -1,5 +1,8 @@
 import os
 
+# Set dummy DATABASE_URL before importing main (which imports database at module load)
+os.environ.setdefault("DATABASE_URL", "sqlite://")
+
 # Disable secure cookie flag so TestClient (HTTP) can send session cookies
 os.environ["COOKIE_SECURE"] = "0"
 
