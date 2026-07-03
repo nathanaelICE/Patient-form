@@ -99,3 +99,13 @@ export interface FieldError {
   msg: string
   type: string
 }
+
+export type OcrJobStatus = 'pending' | 'processing' | 'error'
+export interface OcrJob {
+  id: number
+  filename: string
+  status: OcrJobStatus
+  error_message: string | null
+  extracted_fields: Partial<PatientCreate> | null
+  created_at: string
+}
