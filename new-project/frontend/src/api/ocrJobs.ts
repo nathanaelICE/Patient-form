@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiFetch, ApiError } from './client'
 import type { OcrJob } from './types'
@@ -6,13 +7,33 @@ function isActive(jobs: OcrJob[] | undefined): boolean {
   return !!jobs?.some((j) => j.status === 'pending' || j.status === 'processing')
 }
 
+function activeCount(jobs: OcrJob[] | undefined): number {
+  return jobs?.filter((j) => j.status === 'pending' || j.status === 'processing').length ?? 0
+}
+
 export function useOcrJobs(enabled = true) {
-  return useQuery({
+  const qc = useQueryClient()
+  const query = useQuery({
     queryKey: ['ocrJobs'],
     queryFn: () => apiFetch<OcrJob[]>('/api/ocr/jobs'),
     enabled,
-    refetchInterval: (query) => (isActive(query.state.data as OcrJob[] | undefined) ? 2000 : false),
+    refetchInterval: (q) => (isActive(q.state.data as OcrJob[] | undefined) ? 2000 : false),
   })
+
+  // When a job that was pending/processing drops out of the active set, it
+  // either finished (a new patient was created) or errored. Refresh the patient
+  // list so completed patients appear without a manual page refresh.
+  const prevActive = useRef<number | null>(null)
+  useEffect(() => {
+    if (query.data === undefined) return
+    const active = activeCount(query.data)
+    if (prevActive.current !== null && active < prevActive.current) {
+      qc.invalidateQueries({ queryKey: ['patients'] })
+    }
+    prevActive.current = active
+  }, [query.data, qc])
+
+  return query
 }
 
 export function useUploadOcrJobs() {

@@ -58,3 +58,67 @@ def test_extract_raises_ocrerror_on_bad_json():
     with patch.object(ocr_service, "_get_client", return_value=fake_client):
         with pytest.raises(ocr_service.OCRError):
             ocr_service.extract_patient_fields(b"x", "image/png")
+
+
+def test_is_rate_limit_classifies_errors():
+    class Coded(Exception):
+        code = 429
+
+    assert ocr_service._is_rate_limit(Coded("nope")) is True
+    assert ocr_service._is_rate_limit(RuntimeError("429 RESOURCE_EXHAUSTED: quota")) is True
+    assert ocr_service._is_rate_limit(RuntimeError("please slow down, rate limit")) is True
+    assert ocr_service._is_rate_limit(RuntimeError("could not parse json")) is False
+
+
+def _valid_payload():
+    payload = {
+        "fields": {f: None for f in ocr_service.PATIENT_FIELDS},
+        "confidence": {f: 0.0 for f in ocr_service.PATIENT_FIELDS},
+    }
+    payload["fields"]["name"] = "Budi"
+    return payload
+
+
+def test_extract_retries_on_rate_limit_then_succeeds(monkeypatch):
+    calls = {"n": 0}
+
+    def flaky(*a, **k):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise RuntimeError("429 RESOURCE_EXHAUSTED")
+        return _fake_response(_valid_payload())
+
+    fake_client = MagicMock()
+    fake_client.models.generate_content.side_effect = flaky
+    monkeypatch.setattr(ocr_service.time, "sleep", lambda _s: None)
+    with patch.object(ocr_service, "_get_client", return_value=fake_client):
+        result = ocr_service.extract_patient_fields(b"x", "image/png")
+
+    assert calls["n"] == 3
+    assert result["fields"]["name"] == "Budi"
+
+
+def test_extract_raises_ratelimit_after_max_attempts(monkeypatch):
+    fake_client = MagicMock()
+    fake_client.models.generate_content.side_effect = RuntimeError("429 RESOURCE_EXHAUSTED")
+    monkeypatch.setattr(ocr_service.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(ocr_service, "RATE_LIMIT_MAX_ATTEMPTS", 3)
+    with patch.object(ocr_service, "_get_client", return_value=fake_client):
+        with pytest.raises(ocr_service.OCRRateLimitError):
+            ocr_service.extract_patient_fields(b"x", "image/png")
+
+
+def test_extract_does_not_retry_non_rate_limit(monkeypatch):
+    calls = {"n": 0}
+
+    def boom(*a, **k):
+        calls["n"] += 1
+        raise RuntimeError("boom")
+
+    fake_client = MagicMock()
+    fake_client.models.generate_content.side_effect = boom
+    monkeypatch.setattr(ocr_service.time, "sleep", lambda _s: None)
+    with patch.object(ocr_service, "_get_client", return_value=fake_client):
+        with pytest.raises(ocr_service.OCRError):
+            ocr_service.extract_patient_fields(b"x", "image/png")
+    assert calls["n"] == 1  # no retries for non-rate-limit errors

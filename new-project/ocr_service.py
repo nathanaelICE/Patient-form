@@ -7,13 +7,23 @@ real API calls.
 import os
 import re
 import json
+import time
+import logging
 
 from google import genai
 from google.genai import types
 
+logger = logging.getLogger(__name__)
+
 # Default to a cheap, capable vision model; override with OCR_MODEL (e.g.
 # gemini-2.5-pro for higher accuracy, gemini-2.5-flash-lite for lowest cost).
 DEFAULT_MODEL = "gemini-2.5-flash"
+
+# Retry policy for transient rate-limit (HTTP 429 / RESOURCE_EXHAUSTED) errors.
+# Free-tier Gemini has a low requests-per-minute ceiling, so a burst batch can
+# trip it; back off and retry rather than failing the job outright.
+RATE_LIMIT_MAX_ATTEMPTS = int(os.environ.get("OCR_RATELIMIT_RETRIES", "4"))
+RATE_LIMIT_BASE_DELAY = float(os.environ.get("OCR_RATELIMIT_BASE_DELAY", "2.0"))
 
 PATIENT_FIELDS = [
     "name", "date_of_birth", "gender", "phone",
@@ -42,6 +52,20 @@ class OCRError(Exception):
     """Raised when the vision call or its parsing fails."""
 
 
+class OCRRateLimitError(OCRError):
+    """Raised when the vision API keeps returning a rate-limit/quota error."""
+
+
+def _is_rate_limit(exc: Exception) -> bool:
+    """Best-effort detection of a 429 / quota-exhausted error from the SDK."""
+    code = getattr(exc, "code", None) or getattr(exc, "status_code", None)
+    if code == 429:
+        return True
+    text = str(exc).lower()
+    markers = ("429", "resource_exhausted", "quota", "rate limit", "too many requests")
+    return any(m in text for m in markers)
+
+
 def ocr_available() -> bool:
     return bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
 
@@ -64,18 +88,34 @@ def _extract_json(text: str) -> dict:
 
 def extract_patient_fields(image_bytes: bytes, media_type: str) -> dict:
     """Send the image to Gemini vision and return {fields, confidence}."""
-    try:
-        client = _get_client()
-        response = client.models.generate_content(
-            model=_model(),
-            contents=[
-                types.Part.from_bytes(data=image_bytes, mime_type=media_type),
-                _PROMPT,
-            ],
-            config=types.GenerateContentConfig(response_mime_type="application/json"),
-        )
-    except Exception as exc:  # SDK/network error
-        raise OCRError(f"vision request failed: {exc}") from exc
+    client = _get_client()
+    attempt = 0
+    while True:
+        try:
+            response = client.models.generate_content(
+                model=_model(),
+                contents=[
+                    types.Part.from_bytes(data=image_bytes, mime_type=media_type),
+                    _PROMPT,
+                ],
+                config=types.GenerateContentConfig(response_mime_type="application/json"),
+            )
+            break
+        except Exception as exc:  # SDK/network error
+            if _is_rate_limit(exc):
+                attempt += 1
+                if attempt >= RATE_LIMIT_MAX_ATTEMPTS:
+                    raise OCRRateLimitError(
+                        f"rate limited after {attempt} attempts: {exc}"
+                    ) from exc
+                delay = RATE_LIMIT_BASE_DELAY * (2 ** (attempt - 1))
+                logger.warning(
+                    "OCR rate-limited (attempt %d/%d); backing off %.1fs: %s",
+                    attempt, RATE_LIMIT_MAX_ATTEMPTS, delay, exc,
+                )
+                time.sleep(delay)
+                continue
+            raise OCRError(f"vision request failed: {exc}") from exc
 
     text = getattr(response, "text", None)
     if not text:

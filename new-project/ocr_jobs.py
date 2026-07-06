@@ -4,6 +4,7 @@
 be unit-tested with the in-memory test session and driven from a threadpool by
 the worker loop. The loop itself lives in `main.py` startup.
 """
+import logging
 from datetime import datetime
 
 from pydantic import ValidationError
@@ -12,6 +13,8 @@ from sqlmodel import Session, select
 import ocr_service
 from models import OcrJob, Patient
 from schemas import PatientCreate
+
+logger = logging.getLogger(__name__)
 
 
 def _touch(job: OcrJob) -> None:
@@ -45,8 +48,9 @@ def process_job(session: Session, job_id: int) -> None:
 
     try:
         result = ocr_service.extract_patient_fields(job.image, job.media_type)
-    except ocr_service.OCRError:
-        _fail(session, job, "could not read document")
+    except ocr_service.OCRError as exc:
+        logger.warning("OCR job %s failed: %s", job_id, exc)
+        _fail(session, job, str(exc))
         return
 
     fields = result.get("fields") or {}

@@ -84,7 +84,22 @@ def test_process_job_ocr_failure_marks_error(session, monkeypatch):
     refreshed = session.get(OcrJob, job.id)
     assert refreshed is not None
     assert refreshed.status == "error"
-    assert refreshed.error_message == "could not read document"
+    # the real cause is surfaced, not a generic message
+    assert "vision down" in refreshed.error_message
+
+
+def test_process_job_rate_limit_records_message(session, monkeypatch):
+    job = _make_job(session)
+
+    def boom(img, mt):
+        raise ocr_service.OCRRateLimitError("rate limited after 3 attempts: 429 RESOURCE_EXHAUSTED")
+
+    monkeypatch.setattr(ocr_service, "extract_patient_fields", boom)
+    ocr_jobs.process_job(session, job.id)
+
+    refreshed = session.get(OcrJob, job.id)
+    assert refreshed.status == "error"
+    assert "rate limit" in refreshed.error_message.lower()
 
 
 def test_process_job_missing_required_field_marks_error(session, monkeypatch):
